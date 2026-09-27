@@ -1,4 +1,3 @@
-
 import json
 import html
 from pathlib import Path
@@ -26,8 +25,6 @@ ANALYSIS_DIR = EVIDENCE_DIR / "analysis"
 
 OUTPUT_FILE = BASE_DIR / "reporting" / "forensic_report.html"
 
-PLOTS_DIR = BASE_DIR / "reporting" / "plots"
-
 
 # ============================================================
 # FILE HELPERS
@@ -45,7 +42,6 @@ def load_json(filename):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-
     except Exception as exc:
         return {
             "_error": str(exc),
@@ -65,7 +61,6 @@ def load_root_json(filename):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-
     except Exception as exc:
         return {
             "_error": str(exc),
@@ -82,7 +77,6 @@ def esc(value):
 # ============================================================
 
 def render_value(value, level=0):
-
     if value is None:
         return '<span class="null">null</span>'
 
@@ -100,12 +94,10 @@ def render_value(value, level=0):
         return f'<span class="string">{esc(value)}</span>'
 
     if isinstance(value, list):
-
         if not value:
             return "<em>None</em>"
 
         items = []
-
         for item in value:
             items.append(
                 f'<li>{render_value(item, level + 1)}</li>'
@@ -114,11 +106,9 @@ def render_value(value, level=0):
         return "<ul>" + "".join(items) + "</ul>"
 
     if isinstance(value, dict):
-
         rows = []
 
         for key, val in value.items():
-
             rows.append(
                 "<tr>"
                 f"<th>{esc(key)}</th>"
@@ -142,7 +132,6 @@ def render_value(value, level=0):
 # ============================================================
 
 def section(title, content):
-
     return f"""
     <section>
         <h2>{esc(title)}</h2>
@@ -152,11 +141,9 @@ def section(title, content):
 
 
 def info_table(data):
-
     rows = []
 
     for key, value in data.items():
-
         rows.append(
             "<tr>"
             f"<th>{esc(key)}</th>"
@@ -174,12 +161,7 @@ def info_table(data):
 
 
 def status_badge(text, css_class="info"):
-
-    return (
-        f'<span class="badge {css_class}">'
-        f'{esc(text)}'
-        f'</span>'
-    )
+    return f'<span class="badge {css_class}">{esc(text)}</span>'
 
 
 # ============================================================
@@ -187,11 +169,9 @@ def status_badge(text, css_class="info"):
 # ============================================================
 
 def build_evidence_summary(metadata, custody):
-
     rows = []
 
     if isinstance(metadata, dict):
-
         for key in [
             "case_id",
             "evidence_id",
@@ -201,9 +181,7 @@ def build_evidence_summary(metadata, custody):
             "sha256",
             "verified"
         ]:
-
             if key in metadata:
-
                 rows.append(
                     "<tr>"
                     f"<th>{esc(key)}</th>"
@@ -225,13 +203,8 @@ def build_evidence_summary(metadata, custody):
 # ============================================================
 
 def build_security_indicators(data):
-
     if not isinstance(data, dict):
-        return (
-            "<p>"
-            "No security-indicator data available."
-            "</p>"
-        )
+        return "<p>No security-indicator data available.</p>"
 
     indicators = data.get("indicators", [])
 
@@ -241,40 +214,18 @@ def build_security_indicators(data):
     rows = []
 
     for indicator in indicators:
-
-        severity = indicator.get(
-            "severity",
-            "UNKNOWN"
-        )
+        severity = indicator.get("severity", "UNKNOWN")
 
         severity_class = severity.lower()
 
         rows.append(
             "<tr>"
-            f"<td>"
-            f"{esc(indicator.get('timestamp_seconds', 'N/A'))}"
-            f"</td>"
-
-            f"<td>"
-            f"{esc(indicator.get('category', ''))}"
-            f"</td>"
-
-            f"<td>"
-            f"{status_badge(severity, severity_class)}"
-            f"</td>"
-
-            f"<td>"
-            f"<strong>"
-            f"{esc(indicator.get('indicator_type', ''))}"
-            f"</strong>"
-            f"<br>"
-            f"{esc(indicator.get('description', ''))}"
-            f"</td>"
-
-            f"<td>"
-            f"{esc(indicator.get('confidence', ''))}"
-            f"</td>"
-
+            f"<td>{esc(indicator.get('timestamp_seconds', 'N/A'))}</td>"
+            f"<td>{esc(indicator.get('category', ''))}</td>"
+            f"<td>{status_badge(severity, severity_class)}</td>"
+            f"<td><strong>{esc(indicator.get('indicator_type', ''))}</strong>"
+            f"<br>{esc(indicator.get('description', ''))}</td>"
+            f"<td>{esc(indicator.get('confidence', ''))}</td>"
             "</tr>"
         )
 
@@ -283,64 +234,35 @@ def build_security_indicators(data):
 
         <div class="card">
             <div class="card-number">
-                {esc(
-                    data.get(
-                        "indicator_count",
-                        len(indicators)
-                    )
-                )}
+                {esc(data.get("indicator_count", len(indicators)))}
             </div>
-            <div class="card-label">
-                Indicators
-            </div>
+            <div class="card-label">Indicators</div>
         </div>
 
         <div class="card">
             <div class="card-number">
-                {esc(
-                    data.get(
-                        "severity_counts",
-                        {}
-                    ).get("MEDIUM", 0)
-                )}
+                {esc(data.get("severity_counts", {}).get("MEDIUM", 0))}
             </div>
-            <div class="card-label">
-                Medium
-            </div>
+            <div class="card-label">Medium</div>
         </div>
 
         <div class="card">
             <div class="card-number">
-                {esc(
-                    data.get(
-                        "severity_counts",
-                        {}
-                    ).get("LOW", 0)
-                )}
+                {esc(data.get("severity_counts", {}).get("LOW", 0))}
             </div>
-            <div class="card-label">
-                Low
-            </div>
+            <div class="card-label">Low</div>
         </div>
 
         <div class="card">
             <div class="card-number">
-                {esc(
-                    data.get(
-                        "severity_counts",
-                        {}
-                    ).get("INFO", 0)
-                )}
+                {esc(data.get("severity_counts", {}).get("INFO", 0))}
             </div>
-            <div class="card-label">
-                Informational
-            </div>
+            <div class="card-label">Informational</div>
         </div>
 
     </div>
 
     <table class="data-table">
-
         <thead>
             <tr>
                 <th>Time (s)</th>
@@ -350,11 +272,9 @@ def build_security_indicators(data):
                 <th>Confidence</th>
             </tr>
         </thead>
-
         <tbody>
             {"".join(rows)}
         </tbody>
-
     </table>
     """
 
@@ -363,36 +283,16 @@ def build_security_indicators(data):
 # COMMAND ANALYSIS
 # ============================================================
 
-def build_command_summary(
-    command_data,
-    ack_data
-):
-
+def build_command_summary(command_data, ack_data):
     content = ""
 
     if isinstance(command_data, dict):
-
-        content += (
-            "<h3>"
-            "Vehicle Command Analysis"
-            "</h3>"
-        )
-
-        content += info_table(
-            command_data
-        )
+        content += "<h3>Vehicle Command Analysis</h3>"
+        content += info_table(command_data)
 
     if isinstance(ack_data, dict):
-
-        content += (
-            "<h3>"
-            "Command / ACK Matching"
-            "</h3>"
-        )
-
-        content += info_table(
-            ack_data
-        )
+        content += "<h3>Command / ACK Matching</h3>"
+        content += info_table(ack_data)
 
     return content
 
@@ -402,89 +302,42 @@ def build_command_summary(
 # ============================================================
 
 def build_state_summary(state_data):
-
     if not isinstance(state_data, dict):
-
-        return (
-            "<p>"
-            "No state reconstruction data available."
-            "</p>"
-        )
+        return "<p>No state reconstruction data available.</p>"
 
     content = ""
 
-    initial_status = state_data.get(
-        "initial_vehicle_status"
-    )
+    initial_status = state_data.get("initial_vehicle_status")
 
     if initial_status:
+        content += "<h3>Initial Vehicle State</h3>"
+        content += info_table(initial_status)
 
-        content += (
-            "<h3>"
-            "Initial Vehicle State"
-            "</h3>"
-        )
-
-        content += info_table(
-            initial_status
-        )
-
-    initial_land = state_data.get(
-        "initial_land_detection"
-    )
+    initial_land = state_data.get("initial_land_detection")
 
     if initial_land:
+        content += "<h3>Initial Land Detection State</h3>"
+        content += info_table(initial_land)
 
-        content += (
-            "<h3>"
-            "Initial Land Detection State"
-            "</h3>"
-        )
-
-        content += info_table(
-            initial_land
-        )
-
-    events = state_data.get(
-        "events",
-        []
-    )
+    events = state_data.get("events", [])
 
     if events:
-
         rows = []
 
         for event in events:
-
             rows.append(
                 "<tr>"
-
-                f"<td>"
-                f"{esc(event.get('timestamp_seconds', ''))}"
-                f"</td>"
-
-                f"<td>"
-                f"{esc(event.get('event_type', ''))}"
-                f"</td>"
-
-                f"<td>"
-                f"{esc(event.get('previous_value', ''))}"
-                f"</td>"
-
-                f"<td>"
-                f"{esc(event.get('new_value', ''))}"
-                f"</td>"
-
+                f"<td>{esc(event.get('timestamp_seconds', ''))}</td>"
+                f"<td>{esc(event.get('event_type', ''))}</td>"
+                f"<td>{esc(event.get('previous_value', ''))}</td>"
+                f"<td>{esc(event.get('new_value', ''))}</td>"
                 "</tr>"
             )
 
         content += """
-        <h3>
-            State Transition Events
-        </h3>
+        <h3>State Transition Events</h3>
 
         <table class="data-table">
-
             <thead>
                 <tr>
                     <th>Time (s)</th>
@@ -493,7 +346,6 @@ def build_state_summary(state_data):
                     <th>New</th>
                 </tr>
             </thead>
-
             <tbody>
         """
 
@@ -501,7 +353,6 @@ def build_state_summary(state_data):
 
         content += """
             </tbody>
-
         </table>
         """
 
@@ -513,58 +364,29 @@ def build_state_summary(state_data):
 # ============================================================
 
 def build_timeline(data):
-
     if not isinstance(data, dict):
+        return "<p>No timeline available.</p>"
 
-        return (
-            "<p>"
-            "No timeline available."
-            "</p>"
-        )
-
-    events = data.get(
-        "events",
-        []
-    )
+    events = data.get("events", [])
 
     if not events:
-
-        return (
-            "<p>"
-            "No timeline events available."
-            "</p>"
-        )
+        return "<p>No timeline events available.</p>"
 
     rows = []
 
     for event in events:
-
         rows.append(
             "<tr>"
-
-            f"<td>"
-            f"{esc(event.get('timestamp_seconds', ''))}"
-            f"</td>"
-
-            f"<td>"
-            f"{esc(event.get('event_type', ''))}"
-            f"</td>"
-
-            f"<td>"
-            f"{render_value(event.get('details', {}))}"
-            f"</td>"
-
+            f"<td>{esc(event.get('timestamp_seconds', ''))}</td>"
+            f"<td>{esc(event.get('event_type', ''))}</td>"
+            f"<td>{render_value(event.get('details', {}))}</td>"
             "</tr>"
         )
 
     return f"""
-    <p>
-        Total reconstructed events:
-        <strong>{len(events)}</strong>
-    </p>
+    <p>Total reconstructed events: <strong>{len(events)}</strong></p>
 
     <table class="data-table">
-
         <thead>
             <tr>
                 <th>Time (s)</th>
@@ -576,63 +398,8 @@ def build_timeline(data):
         <tbody>
             {"".join(rows)}
         </tbody>
-
     </table>
     """
-
-
-# ============================================================
-# VISUALIZATION HELPERS
-# ============================================================
-
-def image_if_exists(filename, title):
-
-    path = PLOTS_DIR / filename
-
-    if not path.exists():
-
-        return f"""
-        <div class="notice">
-            Visualization unavailable:
-            {esc(filename)}
-        </div>
-        """
-
-    relative_path = f"plots/{filename}"
-
-    return f"""
-    <div class="plot-container">
-
-        <h3>{esc(title)}</h3>
-
-        <img
-            src="{esc(relative_path)}"
-            alt="{esc(title)}"
-            class="forensic-plot"
-        >
-
-    </div>
-    """
-
-
-def build_visualization_section():
-
-    return (
-        image_if_exists(
-            "gps_flight_path.png",
-            "GPS Flight Path"
-        )
-
-        + image_if_exists(
-            "altitude_speed_timeline.png",
-            "Altitude and Speed Timeline"
-        )
-
-        + image_if_exists(
-            "security_indicator_timeline.png",
-            "Security Indicator Timeline"
-        )
-    )
 
 
 # ============================================================
@@ -641,41 +408,16 @@ def build_visualization_section():
 
 def generate_report():
 
-    metadata = load_root_json(
-        "metadata.json"
-    )
+    metadata = load_root_json("metadata.json")
+    custody = load_root_json("chain_of_custody.json")
 
-    custody = load_root_json(
-        "chain_of_custody.json"
-    )
-
-    navigation = load_json(
-        "navigation_integrity.json"
-    )
-
-    commands = load_json(
-        "command_forensics.json"
-    )
-
-    ack_matching = load_json(
-        "command_ack_matching.json"
-    )
-
-    states = load_json(
-        "state_reconstruction.json"
-    )
-
-    timeline = load_json(
-        "forensic_timeline.json"
-    )
-
-    correlations = load_json(
-        "event_correlations.json"
-    )
-
-    security = load_json(
-        "security_indicators.json"
-    )
+    navigation = load_json("navigation_integrity.json")
+    commands = load_json("command_forensics.json")
+    ack_matching = load_json("command_ack_matching.json")
+    states = load_json("state_reconstruction.json")
+    timeline = load_json("forensic_timeline.json")
+    correlations = load_json("event_correlations.json")
+    security = load_json("security_indicators.json")
 
     generated_time = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
@@ -699,46 +441,30 @@ def generate_report():
     log_summary = {}
 
     if isinstance(navigation, dict):
-
         log_summary["GPS samples"] = navigation.get(
-            "sample_count",
-            "N/A"
+            "sample_count", "N/A"
         )
 
     if isinstance(commands, dict):
-
         log_summary["Vehicle commands"] = commands.get(
             "command_count",
-            commands.get(
-                "commands_count",
-                "N/A"
-            )
+            commands.get("commands_count", "N/A")
         )
 
     if isinstance(ack_matching, dict):
-
         log_summary["Command ACKs"] = ack_matching.get(
             "ack_count",
-            ack_matching.get(
-                "acks_count",
-                "N/A"
-            )
+            ack_matching.get("acks_count", "N/A")
         )
 
     if isinstance(states, dict):
-
         log_summary["State events"] = states.get(
-            "event_count",
-            "N/A"
+            "event_count", "N/A"
         )
 
     if isinstance(timeline, dict):
-
         log_summary["Timeline events"] = len(
-            timeline.get(
-                "events",
-                []
-            )
+            timeline.get("events", [])
         )
 
     # --------------------------------------------------------
@@ -748,51 +474,85 @@ def generate_report():
     conclusion = """
     <div class="notice">
 
-        <strong>
-            Evidence interpretation:
-        </strong>
+        <strong>Evidence interpretation:</strong>
 
-        <p>
-            The findings in this report represent observations
-            reconstructed from the analyzed PX4 ULog and
-            associated forensic artifacts.
-        </p>
+        The findings in this report represent observations
+        reconstructed from the analyzed PX4 ULog and associated
+        forensic artifacts.
 
-        <p>
-            Security indicators identify conditions that may
-            warrant further investigation. They do not, by
-            themselves, establish malicious intent, unauthorized
-            access, or the occurrence of a cyberattack.
-        </p>
+        Security indicators identify conditions that may warrant
+        further investigation. They do not, by themselves,
+        establish malicious intent, unauthorized access, or the
+        occurrence of a cyberattack.
 
-        <p>
-            Recorded GPS spoofing/jamming fields, GCS connection
-            transitions, command-origin fields, command/ACK
-            relationships, and failsafe states are reported as
-            observed telemetry conditions.
-        </p>
+        Recorded GPS spoofing/jamming fields, GCS connection
+        transitions, command-origin fields, command/ACK
+        relationships, and failsafe states are reported as
+        observed telemetry conditions.
 
-        <p>
-            Temporal proximity between events is not treated as
-            proof of causality.
-        </p>
+        Temporal proximity between events is not treated as proof
+        of causality.
 
     </div>
     """
 
-    # --------------------------------------------------------
-    # VISUALIZATIONS
-    # --------------------------------------------------------
+# --------------------------------------------------------
+# VISUALIZATION SECTION
+# --------------------------------------------------------
 
-    visualization_section = (
-        build_visualization_section()
+PLOTS_DIR = BASE_DIR / "reporting" / "plots"
+
+
+def image_if_exists(filename, title):
+
+    path = PLOTS_DIR / filename
+
+    if not path.exists():
+        return f"""
+        <div class="notice">
+            Visualization unavailable: {esc(filename)}
+        </div>
+        """
+
+    # Relative path from reporting/forensic_report.html
+    relative_path = f"plots/{filename}"
+
+    return f"""
+    <div class="plot-container">
+
+        <h3>{esc(title)}</h3>
+
+        <img
+            src="{esc(relative_path)}"
+            alt="{esc(title)}"
+            class="forensic-plot"
+        >
+
+    </div>
+    """
+
+
+visualization_section = (
+    image_if_exists(
+        "gps_flight_path.png",
+        "GPS Flight Path"
     )
 
+    + image_if_exists(
+        "altitude_speed_timeline.png",
+        "Altitude and Speed Timeline"
+    )
+
+    + image_if_exists(
+        "security_indicator_timeline.png",
+        "Security Indicator Timeline"
+    )
+)
     # --------------------------------------------------------
     # HTML DOCUMENT
     # --------------------------------------------------------
 
-    html_document = f"""
+html_document = f"""
 <!DOCTYPE html>
 
 <html lang="en">
@@ -958,22 +718,22 @@ h3 {{
     color: #7a2222;
 }}
 
-.plot-container {{
+.plot-container {
     margin: 30px 0;
     padding: 15px;
     border: 1px solid #dfe4e8;
     border-radius: 8px;
     background: #fafbfc;
-}}
+}
 
-.forensic-plot {{
+.forensic-plot {
     display: block;
     width: 100%;
     max-width: 1100px;
     height: auto;
     margin: 15px auto;
     border: 1px solid #dfe4e8;
-}}
+}
 
 .notice {{
     background: #f8f9fa;
@@ -1034,28 +794,22 @@ footer {{
 
 <header>
 
-<h1>
-Drone Forensic Examination Report
-</h1>
+<h1>Drone Forensic Examination Report</h1>
 
 <p>
-<strong>Case:</strong>
-{esc(CASE_ID)}
+<strong>Case:</strong> {esc(CASE_ID)}
 </p>
 
 <p>
-<strong>Evidence:</strong>
-{esc(EVIDENCE_ID)}
+<strong>Evidence:</strong> {esc(EVIDENCE_ID)}
 </p>
 
 <p>
-<strong>Source:</strong>
-17_02_27.ulg
+<strong>Source:</strong> 17_02_27.ulg
 </p>
 
 <p>
-<strong>Generated:</strong>
-{esc(generated_time)}
+<strong>Generated:</strong> {esc(generated_time)}
 </p>
 
 </header>
@@ -1069,10 +823,7 @@ Drone Forensic Examination Report
 
 {section(
     "2. Evidence Integrity",
-    build_evidence_summary(
-        metadata,
-        custody
-    )
+    build_evidence_summary(metadata, custody)
 )}
 
 
@@ -1093,7 +844,6 @@ Drone Forensic Examination Report
     render_value(navigation)
 )}
 
-
 {section(
     "6. Forensic Visualizations",
     visualization_section
@@ -1102,10 +852,7 @@ Drone Forensic Examination Report
 
 {section(
     "7. Command and ACK Forensics",
-    build_command_summary(
-        commands,
-        ack_matching
-    )
+    build_command_summary(commands, ack_matching)
 )}
 
 
@@ -1143,44 +890,41 @@ Drone Forensic Examination Report
     "13. Analyst Notes and Limitations",
     """
     <ul>
-
         <li>
-            Findings are based on the available PX4 ULog
-            evidence.
+            Findings are based on the available PX4 ULog evidence.
         </li>
 
         <li>
-            Absence of a recorded indicator does not prove
-            absence of an underlying event.
+            Absence of a recorded indicator does not prove absence
+            of an underlying event.
         </li>
 
         <li>
-            GPS spoofing and jamming fields are treated as
-            recorded telemetry observations.
+            GPS spoofing and jamming fields are treated as recorded
+            telemetry observations.
         </li>
 
         <li>
-            GCS connection loss is reported as a communication-
-            state transition and is not automatically classified
-            as a cyberattack.
+            GCS connection loss is reported as a communication-state
+            transition and is not automatically classified as a
+            cyberattack.
         </li>
 
         <li>
-            Command/ACK matching uses command identifiers and
-            must be distinguished from simple temporal proximity.
+            Command/ACK matching uses command identifiers and must
+            be distinguished from simple temporal proximity.
         </li>
 
         <li>
-            The report does not infer malicious intent from
-            telemetry alone.
+            The report does not infer malicious intent from telemetry
+            alone.
         </li>
 
         <li>
-            Severity values are analytical classifications
-            generated by the toolkit and should be interpreted
-            together with the underlying evidence.
+            Severity values are analytical classifications generated
+            by the toolkit and should be interpreted together with
+            the underlying evidence.
         </li>
-
     </ul>
     """
 )}
@@ -1188,8 +932,7 @@ Drone Forensic Examination Report
 
 <footer>
 
-Drone Forensics Toolkit
-<br>
+Drone Forensics Toolkit<br>
 Automated forensic report generated from PX4 evidence
 
 </footer>
@@ -1201,11 +944,7 @@ Automated forensic report generated from PX4 evidence
 </html>
 """
 
-    # --------------------------------------------------------
-    # WRITE REPORT
-    # --------------------------------------------------------
-
-    OUTPUT_FILE.parent.mkdir(
+ OUTPUT_FILE.parent.mkdir(
         parents=True,
         exist_ok=True
     )
@@ -1215,34 +954,22 @@ Automated forensic report generated from PX4 evidence
         "w",
         encoding="utf-8"
     ) as f:
-
         f.write(html_document)
 
     print("=" * 70)
     print("PX4 AUTOMATED FORENSIC REPORT")
     print("=" * 70)
-
     print()
-
     print(f"Case:       {CASE_ID}")
     print(f"Evidence:   {EVIDENCE_ID}")
-
     print()
-
     print("Report generated:")
     print(OUTPUT_FILE)
-
     print()
-
     print("Report size:")
-    print(
-        f"{OUTPUT_FILE.stat().st_size:,} bytes"
-    )
-
+    print(f"{OUTPUT_FILE.stat().st_size:,} bytes")
     print()
-
     print("STATUS: SUCCESS")
-
     print("=" * 70)
 
 
@@ -1252,4 +979,3 @@ Automated forensic report generated from PX4 evidence
 
 if __name__ == "__main__":
     generate_report()
-
