@@ -35,3 +35,7 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+#The whole directory
+drone_forensics.zip
+
