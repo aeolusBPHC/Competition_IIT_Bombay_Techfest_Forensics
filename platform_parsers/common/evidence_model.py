@@ -1,0 +1,369 @@
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class EvidenceMetadata:
+    source_file: str
+    platform: str
+    format: str
+    firmware: str | None = None
+    firmware_version: str | None = None
+    vehicle_type: str | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    duration: float | None = None
+    metadata: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class GPSRecord:
+    timestamp: float
+    latitude: float | None = None
+    longitude: float | None = None
+    altitude_m: float | None = None
+    speed_m_s: float | None = None
+    fix_type: int | None = None
+    satellites: int | None = None
+    hdop: float | None = None
+    vdop: float | None = None
+    heading_deg: float | None = None
+    jamming_state: int | None = None
+    spoofing_state: int | None = None
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class NavigationRecord:
+    timestamp: float
+
+    latitude: float | None = None
+    longitude: float | None = None
+
+    altitude_m: float | None = None
+    altitude_ellipsoid_m: float | None = None
+
+    delta_altitude_m: float | None = None
+    delta_terrain_m: float | None = None
+
+    horizontal_position_accuracy_m: float | None = None
+    vertical_position_accuracy_m: float | None = None
+
+    latitude_longitude_valid: bool | None = None
+    altitude_valid: bool | None = None
+    terrain_altitude_valid: bool | None = None
+
+    latitude_longitude_reset_counter: int | None = None
+    altitude_reset_counter: int | None = None
+    terrain_reset_counter: int | None = None
+
+    dead_reckoning: bool | None = None
+
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class TrajectoryRecord:
+    """
+    Platform-independent normalized trajectory observation.
+
+    The parser/adaptor is responsible for translating platform-native
+    state estimates into this common representation.
+
+    None means the platform/log did not provide a defensible value.
+    Validity flags must not be inferred from the numeric value alone.
+    """
+
+    timestamp: float
+
+    x_m: float | None = None
+    y_m: float | None = None
+    z_m: float | None = None
+
+    vx_m_s: float | None = None
+    vy_m_s: float | None = None
+    vz_m_s: float | None = None
+
+    ax_m_s2: float | None = None
+    ay_m_s2: float | None = None
+    az_m_s2: float | None = None
+
+    position_valid: bool = False
+    horizontal_position_valid: bool = False
+    vertical_position_valid: bool = False
+
+    velocity_valid: bool = False
+    horizontal_velocity_valid: bool = False
+    vertical_velocity_valid: bool = False
+
+    acceleration_valid: bool = False
+
+    position_source: str = "unavailable"
+    velocity_source: str = "unavailable"
+    acceleration_source: str = "unavailable"
+
+    position_reset_counter: int | None = None
+    vertical_reset_counter: int | None = None
+    velocity_reset_counter: int | None = None
+    vertical_velocity_reset_counter: int | None = None
+
+    source_platform: str | None = None
+
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class BatteryRecord:
+    timestamp: float
+
+    voltage_v: float | None = None
+    current_a: float | None = None
+    current_average_a: float | None = None
+
+    discharged_mah: float | None = None
+    remaining: float | None = None
+    time_remaining_s: float | None = None
+    temperature_c: float | None = None
+
+    cell_count: int | None = None
+    cell_voltages_v: list[float] = field(
+        default_factory=list
+    )
+    max_cell_voltage_delta_v: float | None = None
+
+    capacity_mah: int | None = None
+    cycle_count: int | None = None
+    state_of_health: int | None = None
+
+    connected: bool | None = None
+    faults: int | None = None
+    warning: int | None = None
+
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class TelemetryRecord:
+    timestamp: float
+
+    data_rate: float | None = None
+    rate_multiplier: float | None = None
+
+    tx_rate_avg: float | None = None
+    tx_error_rate_avg: float | None = None
+    tx_message_count: int | None = None
+    tx_buffer_overruns: int | None = None
+
+    rx_rate_avg: float | None = None
+    rx_message_count: int | None = None
+    rx_message_lost_count: int | None = None
+    rx_buffer_overruns: int | None = None
+    rx_parse_errors: int | None = None
+    rx_packet_drop_count: int | None = None
+    rx_message_lost_rate: float | None = None
+
+    telemetry_type: int | None = None
+    mode: int | None = None
+
+    mavlink_v2: bool | None = None
+    flow_control: bool | None = None
+    forwarding: bool | None = None
+    ftp: bool | None = None
+
+    heartbeat_type_gcs: bool | None = None
+    heartbeat_type_onboard_controller: bool | None = None
+    heartbeat_type_gimbal: bool | None = None
+    heartbeat_type_camera: bool | None = None
+
+    heartbeat_component_telemetry_radio: bool | None = None
+    heartbeat_component_log: bool | None = None
+    heartbeat_component_osd: bool | None = None
+    heartbeat_component_vio: bool | None = None
+
+    open_drone_id_system_healthy: bool | None = None
+    parachute_system_healthy: bool | None = None
+
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class FailsafeRecord:
+    timestamp: float
+
+    angular_velocity_invalid: bool | None = None
+    attitude_invalid: bool | None = None
+    local_altitude_invalid: bool | None = None
+    local_position_invalid: bool | None = None
+    local_velocity_invalid: bool | None = None
+    global_position_invalid: bool | None = None
+
+    auto_mission_missing: bool | None = None
+    offboard_control_signal_lost: bool | None = None
+    home_position_invalid: bool | None = None
+    manual_control_signal_lost: bool | None = None
+    gcs_connection_lost: bool | None = None
+
+    battery_warning: int | None = None
+    battery_low_remaining_time: bool | None = None
+    battery_unhealthy: bool | None = None
+
+    geofence_breached: bool | None = None
+    mission_failure: bool | None = None
+    wind_limit_exceeded: bool | None = None
+    flight_time_limit_exceeded: bool | None = None
+
+    position_accuracy_low: bool | None = None
+    navigator_failure: bool | None = None
+
+    critical_failure: bool | None = None
+    esc_arming_failure: bool | None = None
+    imbalanced_propeller: bool | None = None
+    motor_failure: bool | None = None
+
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class CommandRecord:
+    timestamp: float
+    command_id: int | None = None
+    source_system: int | None = None
+    source_component: int | None = None
+    target_system: int | None = None
+    target_component: int | None = None
+    parameters: dict[str, Any] = field(
+        default_factory=dict
+    )
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class CommandAckRecord:
+    timestamp: float
+    command_id: int | None = None
+    result: int | None = None
+    source_system: int | None = None
+    source_component: int | None = None
+    target_system: int | None = None
+    target_component: int | None = None
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class StateRecord:
+    timestamp: float
+    armed: bool | None = None
+    flight_mode: str | None = None
+    failsafe: bool | None = None
+    gcs_connection_lost: bool | None = None
+    landed: bool | None = None
+    takeoff: bool | None = None
+    preflight_checks_pass: bool | None = None
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class ParameterRecord:
+    timestamp: float | None
+    name: str
+    value: Any
+    source_platform: str | None = None
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class ForensicEvent:
+    timestamp: float
+    event_type: str
+    description: str | None = None
+    source_platform: str | None = None
+    severity: str | None = None
+    data: dict[str, Any] = field(
+        default_factory=dict
+    )
+    raw: dict[str, Any] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class NormalizedEvidence:
+    metadata: EvidenceMetadata
+
+    gps: list[GPSRecord] = field(
+        default_factory=list
+    )
+
+    navigation: list[NavigationRecord] = field(
+        default_factory=list
+    )
+
+    trajectory: list[TrajectoryRecord] = field(
+        default_factory=list
+    )
+
+    battery: list[BatteryRecord] = field(
+        default_factory=list
+    )
+
+    telemetry: list[TelemetryRecord] = field(
+        default_factory=list
+    )
+
+    failsafe: list[FailsafeRecord] = field(
+        default_factory=list
+    )
+
+    commands: list[CommandRecord] = field(
+        default_factory=list
+    )
+
+    command_acks: list[CommandAckRecord] = field(
+        default_factory=list
+    )
+
+    states: list[StateRecord] = field(
+        default_factory=list
+    )
+
+    parameters: list[ParameterRecord] = field(
+        default_factory=list
+    )
+
+    events: list[ForensicEvent] = field(
+        default_factory=list
+    )
+
+    additional_data: dict[str, Any] = field(
+        default_factory=dict
+    )

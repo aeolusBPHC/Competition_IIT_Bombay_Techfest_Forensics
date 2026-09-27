@@ -1,0 +1,516 @@
+{
+  "case_id": "CASE-001",
+  "evidence_id": "EVD-20260919-175126",
+  "source": "repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg",
+  "initial_vehicle_status": {
+    "timestamp_us": 75908000,
+    "timestamp_seconds": 75.908,
+    "arming_state": 1,
+    "nav_state": 4,
+    "failsafe": 0,
+    "gcs_connection_lost": 1,
+    "safety_off": 1,
+    "power_input_valid": 1,
+    "pre_flight_checks_pass": 0
+  },
+  "initial_land_detection": {
+    "timestamp_us": 75956000,
+    "timestamp_seconds": 75.956,
+    "landed": 1,
+    "ground_contact": 1,
+    "maybe_landed": 1,
+    "in_ground_effect": 1,
+    "in_descend": 1,
+    "has_low_throttle": 1,
+    "at_rest": 1
+  },
+  "event_count": 54,
+  "events": [
+    {
+      "timestamp_us": 76632000,
+      "timestamp_seconds": 76.632,
+      "event_type": "GCS_CONNECTION_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "gcs_connection_lost",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 77128000,
+      "timestamp_seconds": 77.128,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 77144000,
+      "timestamp_seconds": 77.144,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 78144000,
+      "timestamp_seconds": 78.144,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 100424000,
+      "timestamp_seconds": 100.424,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 102800000,
+      "timestamp_seconds": 102.8,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 103628000,
+      "timestamp_seconds": 103.628,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 107396000,
+      "timestamp_seconds": 107.396,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 108804000,
+      "timestamp_seconds": 108.804,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 111396000,
+      "timestamp_seconds": 111.396,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 114632000,
+      "timestamp_seconds": 114.632,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 128688000,
+      "timestamp_seconds": 128.688,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 270892000,
+      "timestamp_seconds": 270.892,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 273196000,
+      "timestamp_seconds": 273.196,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 326968000,
+      "timestamp_seconds": 326.968,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 328932000,
+      "timestamp_seconds": 328.932,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 926544000,
+      "timestamp_seconds": 926.544,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 933924000,
+      "timestamp_seconds": 933.924,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 933940000,
+      "timestamp_seconds": 933.94,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 934300000,
+      "timestamp_seconds": 934.3,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 943716000,
+      "timestamp_seconds": 943.716,
+      "event_type": "GCS_CONNECTION_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "gcs_connection_lost",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 943720000,
+      "timestamp_seconds": 943.72,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 944220000,
+      "timestamp_seconds": 944.22,
+      "event_type": "GCS_CONNECTION_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "gcs_connection_lost",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 944760000,
+      "timestamp_seconds": 944.76,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 959640000,
+      "timestamp_seconds": 959.64,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1193196000,
+      "timestamp_seconds": 1193.196,
+      "event_type": "GCS_CONNECTION_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "gcs_connection_lost",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1193200000,
+      "timestamp_seconds": 1193.2,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1193212000,
+      "timestamp_seconds": 1193.212,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1193484000,
+      "timestamp_seconds": 1193.484,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1193508000,
+      "timestamp_seconds": 1193.508,
+      "event_type": "DESCEND_STATE_CHANGE",
+      "source_dataset": "vehicle_land_detected",
+      "field": "in_descend",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1194172000,
+      "timestamp_seconds": 1194.172,
+      "event_type": "GCS_CONNECTION_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "gcs_connection_lost",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1194496000,
+      "timestamp_seconds": 1194.496,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1655556000,
+      "timestamp_seconds": 1655.556,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1663160000,
+      "timestamp_seconds": 1663.16,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1663260000,
+      "timestamp_seconds": 1663.26,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1687200000,
+      "timestamp_seconds": 1687.2,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1689256000,
+      "timestamp_seconds": 1689.256,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1697604000,
+      "timestamp_seconds": 1697.604,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1702156000,
+      "timestamp_seconds": 1702.156,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1711372000,
+      "timestamp_seconds": 1711.372,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1774548000,
+      "timestamp_seconds": 1774.548,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1776336000,
+      "timestamp_seconds": 1776.336,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1776956000,
+      "timestamp_seconds": 1776.956,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1779356000,
+      "timestamp_seconds": 1779.356,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1793168000,
+      "timestamp_seconds": 1793.168,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1799612000,
+      "timestamp_seconds": 1799.612,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 1992576000,
+      "timestamp_seconds": 1992.576,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 1997700000,
+      "timestamp_seconds": 1997.7,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 2139708000,
+      "timestamp_seconds": 2139.708,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 2144460000,
+      "timestamp_seconds": 2144.46,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 2228952000,
+      "timestamp_seconds": 2228.952,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 2233048000,
+      "timestamp_seconds": 2233.048,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    },
+    {
+      "timestamp_us": 2335272000,
+      "timestamp_seconds": 2335.272,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 1,
+      "new_value": 0
+    },
+    {
+      "timestamp_us": 2336988000,
+      "timestamp_seconds": 2336.988,
+      "event_type": "PREFLIGHT_CHECK_STATE_CHANGE",
+      "source_dataset": "vehicle_status",
+      "field": "pre_flight_checks_pass",
+      "previous_value": 0,
+      "new_value": 1
+    }
+  ]
+}

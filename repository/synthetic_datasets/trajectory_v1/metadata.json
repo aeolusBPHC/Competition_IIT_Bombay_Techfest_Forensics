@@ -1,0 +1,624 @@
+{
+  "dataset": "synthetic_uav_trajectory_v1",
+  "seed": 20260927,
+  "trajectory_count": 100,
+  "train_count": 70,
+  "validation_count": 15,
+  "test_count": 15,
+  "duration_s": 60.0,
+  "interval_s": 0.1,
+  "sampling_hz": 10.0,
+  "scenarios": [
+    "accelerate_decelerate",
+    "turn_90",
+    "smooth_turn",
+    "circle",
+    "climb_and_cruise",
+    "figure_eight",
+    "stop_turn_stop",
+    "mixed_3d"
+  ],
+  "position_noise_std_m": 0.02,
+  "trajectories": [
+    {
+      "trajectory_id": 0,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 1,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 2,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 3,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 4,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 5,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 6,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 7,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 8,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 9,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 10,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 11,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 12,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 13,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 14,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 15,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 16,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 17,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 18,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 19,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 20,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 21,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 22,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 23,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 24,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 25,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 26,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 27,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 28,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 29,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 30,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 31,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 32,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 33,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 34,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 35,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 36,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 37,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 38,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 39,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 40,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 41,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 42,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 43,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 44,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 45,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 46,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 47,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 48,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 49,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 50,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 51,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 52,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 53,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 54,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 55,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 56,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 57,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 58,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 59,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 60,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 61,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 62,
+      "split": "train",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 63,
+      "split": "train",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 64,
+      "split": "train",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 65,
+      "split": "train",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 66,
+      "split": "train",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 67,
+      "split": "train",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 68,
+      "split": "train",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 69,
+      "split": "train",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 70,
+      "split": "validation",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 71,
+      "split": "validation",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 72,
+      "split": "validation",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 73,
+      "split": "validation",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 74,
+      "split": "validation",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 75,
+      "split": "validation",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 76,
+      "split": "validation",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 77,
+      "split": "validation",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 78,
+      "split": "validation",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 79,
+      "split": "validation",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 80,
+      "split": "validation",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 81,
+      "split": "validation",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 82,
+      "split": "validation",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 83,
+      "split": "validation",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 84,
+      "split": "validation",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 85,
+      "split": "test",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 86,
+      "split": "test",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 87,
+      "split": "test",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 88,
+      "split": "test",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 89,
+      "split": "test",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 90,
+      "split": "test",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 91,
+      "split": "test",
+      "scenario": "circle",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 92,
+      "split": "test",
+      "scenario": "climb_and_cruise",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 93,
+      "split": "test",
+      "scenario": "figure_eight",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 94,
+      "split": "test",
+      "scenario": "stop_turn_stop",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 95,
+      "split": "test",
+      "scenario": "mixed_3d",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 96,
+      "split": "test",
+      "scenario": "accelerate_decelerate",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 97,
+      "split": "test",
+      "scenario": "turn_90",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 98,
+      "split": "test",
+      "scenario": "smooth_turn",
+      "samples": 601
+    },
+    {
+      "trajectory_id": 99,
+      "split": "test",
+      "scenario": "circle",
+      "samples": 601
+    }
+  ]
+}

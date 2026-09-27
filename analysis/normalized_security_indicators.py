@@ -1,0 +1,1201 @@
+from __future__ import annotations
+
+from typing import Any
+from math import radians, sin, cos, sqrt, atan2
+
+from platform_parsers.common.evidence_model import (
+    NormalizedEvidence,
+)
+
+from analysis.evidence_serialization import serialize_evidence
+
+
+class NormalizedSecurityIndicatorEngine:
+    """
+    Platform-independent security indicator analysis.
+
+    This engine operates exclusively on NormalizedEvidence.
+
+    The parser layer is responsible for translating platform-specific
+    raw data into the normalized evidence model.
+
+    This layer does NOT attempt to prove that a cyberattack occurred.
+    It identifies security-relevant observations and indicators that
+    may require further forensic investigation.
+    """
+
+    COMMAND_ACK_MATCH_WINDOW_SECONDS = 5.0
+    POSITION_JUMP_THRESHOLD_METERS = 100.0
+
+    def __init__(self, evidence: NormalizedEvidence):
+        self.evidence = evidence
+
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
+
+    def analyze(self) -> dict[str, Any]:
+        return {
+            "summary": self.summary(),
+            "navigation": self.navigation_indicators(),
+            "command_and_control": self.command_indicators(),
+            "flight_control": self.flight_control_indicators(),
+            "telemetry": self.telemetry_indicators(),
+            "evidence_quality": self.evidence_quality_indicators(),
+        }
+
+    # ------------------------------------------------------------------
+    # Summary
+    # ------------------------------------------------------------------
+
+    def summary(self) -> dict[str, Any]:
+        metadata = self.evidence.metadata
+
+        return {
+            "platform": metadata.platform,
+            "format": metadata.format,
+            "firmware": metadata.firmware,
+            "firmware_version": metadata.firmware_version,
+            "vehicle_type": metadata.vehicle_type,
+            "record_counts": {
+                "gps": len(self.evidence.gps),
+                "navigation": len(self.evidence.navigation),
+                "battery": len(self.evidence.battery),
+                "telemetry": len(self.evidence.telemetry),
+                "failsafe": len(self.evidence.failsafe),
+                "commands": len(self.evidence.commands),
+                "command_acks": len(self.evidence.command_acks),
+                "states": len(self.evidence.states),
+                "parameters": len(self.evidence.parameters),
+                "events": len(self.evidence.events),
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Navigation indicators
+    # ------------------------------------------------------------------
+
+    def navigation_indicators(self) -> list[dict[str, Any]]:
+        indicators: list[dict[str, Any]] = []
+
+        gps = self.evidence.gps
+
+        if not gps:
+            return indicators
+
+        # --------------------------------------------------------------
+        # GPS spoofing state
+        # --------------------------------------------------------------
+
+        for record in gps:
+            if record.spoofing_state not in (None, 0):
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type="GPS_SPOOFING_STATE",
+                        severity="HIGH",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized GPS record contains a "
+                            "non-zero spoofing state."
+                        ),
+                        evidence={
+                            "gps_record": serialize_evidence(record),
+                            "spoofing_state": record.spoofing_state,
+                        },
+                    )
+                )
+
+        # --------------------------------------------------------------
+        # GPS jamming state
+        # --------------------------------------------------------------
+
+        for record in gps:
+            if record.jamming_state not in (None, 0):
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type="GPS_JAMMING_STATE",
+                        severity="HIGH",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized GPS record contains a "
+                            "non-zero jamming state."
+                        ),
+                        evidence={
+                            "gps_record": serialize_evidence(record),
+                            "jamming_state": record.jamming_state,
+                        },
+                    )
+                )
+
+        # --------------------------------------------------------------
+        # GPS fix-type transitions
+        # --------------------------------------------------------------
+
+        previous_fix = None
+        previous_fix_record = None
+
+        for record in gps:
+            if record.fix_type is None:
+                continue
+
+            if (
+                previous_fix is not None
+                and record.fix_type != previous_fix
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type="GPS_FIX_TYPE_CHANGE",
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A change in normalized GPS fix type "
+                            "was observed."
+                        ),
+                        evidence={
+                            "previous_fix_type": previous_fix,
+                            "current_fix_type": record.fix_type,
+                            "previous_record": (
+                                serialize_evidence(previous_fix_record)
+                                if previous_fix_record is not None
+                                else None
+                            ),
+                            "current_record": (
+                                serialize_evidence(record)
+                            ),
+                        },
+                    )
+                )
+
+            previous_fix = record.fix_type
+            previous_fix_record = record
+
+        # --------------------------------------------------------------
+        # Satellite-count transitions
+        # --------------------------------------------------------------
+
+        previous_satellites = None
+        previous_satellite_record = None
+
+        for record in gps:
+            if record.satellites is None:
+                continue
+
+            if (
+                previous_satellites is not None
+                and record.satellites != previous_satellites
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type="GPS_SATELLITE_COUNT_CHANGE",
+                        severity="LOW",
+                        timestamp=record.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A change in observed GPS satellite "
+                            "count was recorded."
+                        ),
+                        evidence={
+                            "previous_satellites": previous_satellites,
+                            "current_satellites": record.satellites,
+                            "previous_record": (
+                                serialize_evidence(
+                                    previous_satellite_record
+                                )
+                                if previous_satellite_record is not None
+                                else None
+                            ),
+                            "current_record": (
+                                serialize_evidence(record)
+                            ),
+                        },
+                    )
+                )
+
+            previous_satellites = record.satellites
+            previous_satellite_record = record
+
+        # --------------------------------------------------------------
+        # Position discontinuities
+        # --------------------------------------------------------------
+
+        previous = None
+
+        for record in gps:
+            if (
+                previous is None
+                or record.latitude is None
+                or record.longitude is None
+                or previous.latitude is None
+                or previous.longitude is None
+            ):
+                previous = record
+                continue
+
+            delta_time = record.timestamp - previous.timestamp
+
+            if delta_time <= 0:
+                previous = record
+                continue
+
+            distance = self._distance_meters(
+                previous.latitude,
+                previous.longitude,
+                record.latitude,
+                record.longitude,
+            )
+
+            if distance >= self.POSITION_JUMP_THRESHOLD_METERS:
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type="GPS_POSITION_DISCONTINUITY",
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A consecutive normalized GPS position "
+                            "change exceeded the configured "
+                            "discontinuity threshold."
+                        ),
+                        evidence={
+                            "previous_record": (
+                                serialize_evidence(previous)
+                            ),
+                            "current_record": (
+                                serialize_evidence(record)
+                            ),
+                            "comparison": {
+                                "distance_meters": distance,
+                                "delta_time_seconds": delta_time,
+                                "threshold_meters": (
+                                    self.POSITION_JUMP_THRESHOLD_METERS
+                                ),
+                            },
+                        },
+                    )
+                )
+
+            previous = record
+
+        # --------------------------------------------------------------
+        # Navigation validity changes
+        # --------------------------------------------------------------
+
+        previous_valid = None
+        previous_navigation_record = None
+
+        for record in self.evidence.navigation:
+            current_valid = record.latitude_longitude_valid
+
+            if current_valid is None:
+                continue
+
+            if (
+                previous_valid is not None
+                and current_valid != previous_valid
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="navigation",
+                        indicator_type=(
+                            "NAVIGATION_POSITION_VALIDITY_CHANGE"
+                        ),
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A change in normalized global-position "
+                            "validity was observed."
+                        ),
+                        evidence={
+                            "previous_valid": previous_valid,
+                            "current_valid": current_valid,
+                            "previous_record": (
+                                serialize_evidence(
+                                    previous_navigation_record
+                                )
+                                if previous_navigation_record is not None
+                                else None
+                            ),
+                            "current_record": (
+                                serialize_evidence(record)
+                            ),
+                        },
+                    )
+                )
+
+            previous_valid = current_valid
+            previous_navigation_record = record
+
+        return indicators
+
+    # ------------------------------------------------------------------
+    # Command and control indicators
+    # ------------------------------------------------------------------
+
+    def command_indicators(self) -> list[dict[str, Any]]:
+        """
+        Analyze normalized command/acknowledgement relationships.
+
+        Correlation is based on exact command IDs within the configured
+        temporal window.
+
+        A nearby ACK with a different command ID is reported separately
+        as a protocol-correlation mismatch rather than being treated as
+        an acknowledgement of the command.
+
+        ACKs already explained by a command-ID mismatch are not emitted
+        again as ACK_WITHOUT_COMMAND.
+
+        These indicators describe evidence/correlation observations only;
+        they do not by themselves establish an attack.
+        """
+
+        indicators: list[dict[str, Any]] = []
+
+        commands = self.evidence.commands
+        acknowledgements = self.evidence.command_acks
+
+        if not commands and not acknowledgements:
+            return indicators
+
+        # --------------------------------------------------------------
+        # Index ACKs by exact command ID
+        # --------------------------------------------------------------
+
+        ack_by_command: dict[int, list[Any]] = {}
+
+        for ack in acknowledgements:
+            if ack.command_id is None:
+                continue
+
+            ack_by_command.setdefault(
+                ack.command_id,
+                [],
+            ).append(ack)
+
+        # ACKs that have already been explained by a nearby
+        # command-ID mismatch.
+        mismatch_ack_ids: set[int] = set()
+
+        # ACKs that exactly matched a command.
+        matched_ack_ids: set[int] = set()
+
+        # --------------------------------------------------------------
+        # Match commands against ACKs
+        # --------------------------------------------------------------
+
+        for command in commands:
+            if command.command_id is None:
+                continue
+
+            exact_candidates = ack_by_command.get(
+                command.command_id,
+                [],
+            )
+
+            exact_matches = [
+                ack
+                for ack in exact_candidates
+                if abs(
+                    ack.timestamp - command.timestamp
+                )
+                <= self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+            ]
+
+            # Exact command-ID match.
+            if exact_matches:
+                for ack in exact_matches:
+                    matched_ack_ids.add(id(ack))
+
+                continue
+
+            # ----------------------------------------------------------
+            # Look for temporally nearby ACKs with a DIFFERENT ID.
+            # ----------------------------------------------------------
+
+            nearby_mismatches = [
+                ack
+                for ack in acknowledgements
+                if (
+                    ack.command_id is not None
+                    and ack.command_id != command.command_id
+                    and abs(
+                        ack.timestamp - command.timestamp
+                    )
+                    <= self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+                )
+            ]
+
+            if nearby_mismatches:
+                for ack in nearby_mismatches:
+                    mismatch_ack_ids.add(id(ack))
+
+                nearest_ack = min(
+                    nearby_mismatches,
+                    key=lambda ack: abs(
+                        ack.timestamp - command.timestamp
+                    ),
+                )
+
+                indicators.append(
+                    self._indicator(
+                        category="command_and_control",
+                        indicator_type="COMMAND_WITHOUT_EXACT_ACK",
+                        severity="LOW",
+                        timestamp=command.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A normalized command was recorded "
+                            "without an exact command-identifier "
+                            "acknowledgement within the configured "
+                            "matching window. One or more "
+                            "acknowledgements for different command "
+                            "identifiers occurred nearby."
+                        ),
+                        evidence={
+                            "command_id": command.command_id,
+                            "nearest_ack_command_id": (
+                                nearest_ack.command_id
+                            ),
+                            "nearest_ack_result": nearest_ack.result,
+                            "nearest_ack_delta_seconds": (
+                                nearest_ack.timestamp
+                                - command.timestamp
+                            ),
+                            "command": serialize_evidence(command),
+                            "nearest_ack": serialize_evidence(
+                                nearest_ack
+                            ),
+                            "nearby_acknowledgements": (
+                                serialize_evidence(
+                                    nearby_mismatches
+                                )
+                            ),
+                            "correlation": {
+                                "exact_command_id_match": False,
+                                "acknowledgement_found": True,
+                                "acknowledgement_identifier_match": False,
+                                "command_id": command.command_id,
+                                "nearest_ack_command_id": (
+                                    nearest_ack.command_id
+                                ),
+                                "command_timestamp": (
+                                    command.timestamp
+                                ),
+                                "nearest_ack_timestamp": (
+                                    nearest_ack.timestamp
+                                ),
+                                "nearest_ack_delta_seconds": (
+                                    nearest_ack.timestamp
+                                    - command.timestamp
+                                ),
+                                "matching_window_seconds": (
+                                    self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+                                ),
+                            },
+                        },
+                    )
+                )
+
+            else:
+                # ------------------------------------------------------
+                # No exact ACK and no nearby ACK of any ID.
+                # ------------------------------------------------------
+
+                indicators.append(
+                    self._indicator(
+                        category="command_and_control",
+                        indicator_type="COMMAND_WITHOUT_EXACT_ACK",
+                        severity="LOW",
+                        timestamp=command.timestamp,
+                        confidence="MEDIUM",
+                        description=(
+                            "A normalized command was recorded "
+                            "without a corresponding exact-ID "
+                            "acknowledgement within the configured "
+                            "matching window."
+                        ),
+                        evidence={
+                            "command": serialize_evidence(command),
+                            "correlation": {
+                                "exact_command_id_match": False,
+                                "matching_window_seconds": (
+                                    self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+                                ),
+                                "acknowledgement_found": False,
+                            },
+                        },
+                    )
+                )
+
+        # --------------------------------------------------------------
+        # ACK without corresponding command
+        # --------------------------------------------------------------
+
+        command_ids = {
+            command.command_id
+            for command in commands
+            if command.command_id is not None
+        }
+
+        for ack in acknowledgements:
+            if ack.command_id is None:
+                continue
+
+            # Exact matches are already explained.
+            if id(ack) in matched_ack_ids:
+                continue
+
+            # Nearby mismatching ACKs are already explained.
+            if id(ack) in mismatch_ack_ids:
+                continue
+
+            same_id_nearby = any(
+                command.command_id == ack.command_id
+                and abs(
+                    command.timestamp - ack.timestamp
+                )
+                <= self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+                for command in commands
+                if command.command_id is not None
+            )
+
+            if same_id_nearby:
+                continue
+
+            indicators.append(
+                self._indicator(
+                    category="command_and_control",
+                    indicator_type="ACK_WITHOUT_COMMAND",
+                    severity="LOW",
+                    timestamp=ack.timestamp,
+                    confidence="MEDIUM",
+                    description=(
+                        "A command acknowledgement was recorded "
+                        "without a corresponding command with the "
+                        "same command ID within the configured "
+                        "matching window."
+                    ),
+                    evidence={
+                        "command_id": ack.command_id,
+                        "result": ack.result,
+                        "command_id_present_in_evidence": (
+                            ack.command_id in command_ids
+                        ),
+                        "acknowledgement": serialize_evidence(ack),
+                        "correlation": {
+                            "matching_window_seconds": (
+                                self.COMMAND_ACK_MATCH_WINDOW_SECONDS
+                            ),
+                            "matching_command_found": False,
+                            "command_id_present_in_evidence": (
+                                ack.command_id in command_ids
+                            ),
+                        },
+                    },
+                )
+            )
+
+        # --------------------------------------------------------------
+        # Repeated command IDs
+        # --------------------------------------------------------------
+
+        command_id_counts: dict[int, int] = {}
+
+        for command in commands:
+            if command.command_id is None:
+                continue
+
+            command_id_counts[command.command_id] = (
+                command_id_counts.get(command.command_id, 0) + 1
+            )
+
+        for command_id, count in command_id_counts.items():
+            if count > 1:
+                repeated_commands = [
+                    command
+                    for command in commands
+                    if command.command_id == command_id
+                ]
+
+                timestamps = [
+                    command.timestamp
+                    for command in repeated_commands
+                ]
+
+                indicators.append(
+                    self._indicator(
+                        category="command_and_control",
+                        indicator_type="REPEATED_COMMAND_ID",
+                        severity="LOW",
+                        timestamp=min(timestamps),
+                        end_timestamp=max(timestamps),
+                        confidence="HIGH",
+                        description=(
+                            "The same normalized command ID was "
+                            "recorded multiple times."
+                        ),
+                        evidence={
+                            "command_id": command_id,
+                            "count": count,
+                            "timestamps": timestamps,
+                            "commands": serialize_evidence(
+                                repeated_commands
+                            ),
+                        },
+                    )
+                )
+
+        return indicators
+
+    # ------------------------------------------------------------------
+    # Flight-control / safety indicators
+    # ------------------------------------------------------------------
+
+    def flight_control_indicators(self) -> list[dict[str, Any]]:
+        """
+        Analyze flight-control and failsafe conditions.
+
+        Repeated samples of the same asserted condition are treated as
+        one continuous interval. This prevents a high-rate status stream
+        from producing thousands of duplicate findings.
+
+        Explicit False values close an active interval. None values are
+        treated as unavailable observations and do not by themselves
+        prove that a condition ended.
+        """
+
+        indicators: list[dict[str, Any]] = []
+
+        # --------------------------------------------------------------
+        # Failsafe / safety-state intervals
+        # --------------------------------------------------------------
+
+        failsafe_fields = [
+            "angular_velocity_invalid",
+            "attitude_invalid",
+            "local_altitude_invalid",
+            "local_position_invalid",
+            "local_velocity_invalid",
+            "global_position_invalid",
+            "auto_mission_missing",
+            "offboard_control_signal_lost",
+            "home_position_invalid",
+            "manual_control_signal_lost",
+            "gcs_connection_lost",
+            "battery_low_remaining_time",
+            "battery_unhealthy",
+            "geofence_breached",
+            "mission_failure",
+            "wind_limit_exceeded",
+            "flight_time_limit_exceeded",
+            "position_accuracy_low",
+            "navigator_failure",
+            "critical_failure",
+            "esc_arming_failure",
+            "imbalanced_propeller",
+            "motor_failure",
+        ]
+
+        for field in failsafe_fields:
+            active_start = None
+            active_end = None
+            active_record = None
+            active_count = 0
+
+            for record in self.evidence.failsafe:
+                value = getattr(record, field, None)
+
+                if value is True:
+                    if active_start is None:
+                        active_start = record.timestamp
+                        active_record = record
+                        active_count = 1
+                    else:
+                        active_end = record.timestamp
+                        active_count += 1
+
+                elif value is False and active_start is not None:
+                    indicators.append(
+                        self._indicator(
+                            category="flight_control",
+                            indicator_type=field.upper(),
+                            severity=self._failsafe_severity(field),
+                            timestamp=active_start,
+                            end_timestamp=active_end,
+                            confidence="HIGH",
+                            description=(
+                                "A normalized flight-control or "
+                                "failsafe condition was continuously "
+                                "asserted over the recorded interval. "
+                                "The log establishes the recorded "
+                                "state but does not by itself "
+                                "establish its cause."
+                            ),
+                            evidence={
+                                "field": field,
+                                "asserted": True,
+                                "sample_count": active_count,
+                                "interval_start": active_start,
+                                "interval_end": (
+                                    active_end
+                                    if active_end is not None
+                                    else active_start
+                                ),
+                                "first_record": (
+                                    serialize_evidence(active_record)
+                                    if active_record is not None
+                                    else None
+                                ),
+                            },
+                        )
+                    )
+
+                    active_start = None
+                    active_end = None
+                    active_record = None
+                    active_count = 0
+
+            # ----------------------------------------------------------
+            # Condition remains asserted until final record.
+            # ----------------------------------------------------------
+
+            if active_start is not None:
+                indicators.append(
+                    self._indicator(
+                        category="flight_control",
+                        indicator_type=field.upper(),
+                        severity=self._failsafe_severity(field),
+                        timestamp=active_start,
+                        end_timestamp=active_end,
+                        confidence="HIGH",
+                        description=(
+                            "A normalized flight-control or "
+                            "failsafe condition was continuously "
+                            "asserted through the end of the "
+                            "available observations. The log "
+                            "establishes the recorded state but "
+                            "does not by itself establish its cause."
+                        ),
+                        evidence={
+                            "field": field,
+                            "asserted": True,
+                            "sample_count": active_count,
+                            "interval_start": active_start,
+                            "interval_end": active_end,
+                            "still_active_at_end": True,
+                            "first_record": (
+                                serialize_evidence(active_record)
+                                if active_record is not None
+                                else None
+                            ),
+                        },
+                    )
+                )
+
+        # --------------------------------------------------------------
+        # State-record transitions
+        # --------------------------------------------------------------
+
+        state_fields = [
+            (
+                "failsafe",
+                "FAILSAFE_STATE_CHANGE",
+                "MEDIUM",
+                (
+                    "A change in the normalized vehicle failsafe "
+                    "state was observed."
+                ),
+            ),
+            (
+                "gcs_connection_lost",
+                "GCS_CONNECTION_STATE_CHANGE",
+                "MEDIUM",
+                (
+                    "A change in the normalized GCS connection "
+                    "state was observed."
+                ),
+            ),
+            (
+                "armed",
+                "ARMED_STATE_CHANGE",
+                "LOW",
+                (
+                    "A change in the normalized vehicle armed "
+                    "state was observed."
+                ),
+            ),
+            (
+                "landed",
+                "LANDED_STATE_CHANGE",
+                "LOW",
+                (
+                    "A change in the normalized landed state "
+                    "was observed."
+                ),
+            ),
+        ]
+
+        for field, indicator_type, severity, description in state_fields:
+            previous = None
+            previous_record = None
+
+            for record in self.evidence.states:
+                current = getattr(record, field, None)
+
+                if current is None:
+                    continue
+
+                if previous is not None and current != previous:
+                    indicators.append(
+                        self._indicator(
+                            category="flight_control",
+                            indicator_type=indicator_type,
+                            severity=severity,
+                            timestamp=record.timestamp,
+                            confidence="MEDIUM",
+                            description=description,
+                            evidence={
+                                "field": field,
+                                "previous_value": previous,
+                                "current_value": current,
+                                "previous_record": (
+                                    serialize_evidence(previous_record)
+                                    if previous_record is not None
+                                    else None
+                                ),
+                                "current_record": (
+                                    serialize_evidence(record)
+                                ),
+                            },
+                        )
+                    )
+
+                previous = current
+                previous_record = record
+
+        return indicators
+
+    # ------------------------------------------------------------------
+    # Failsafe severity
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _failsafe_severity(field_name: str) -> str:
+        """
+        Map normalized failsafe conditions to conservative severities.
+
+        Severity describes the forensic significance of the recorded
+        condition; it does not claim that an attack occurred.
+        """
+
+        high_severity = {
+            "critical_failure",
+            "motor_failure",
+            "geofence_breached",
+            "mission_failure",
+            "navigator_failure",
+            "battery_unhealthy",
+            "attitude_invalid",
+            "global_position_invalid",
+        }
+
+        medium_severity = {
+            "offboard_control_signal_lost",
+            "manual_control_signal_lost",
+            "gcs_connection_lost",
+            "position_accuracy_low",
+            "local_position_invalid",
+            "local_velocity_invalid",
+            "home_position_invalid",
+            "auto_mission_missing",
+        }
+
+        if field_name in high_severity:
+            return "HIGH"
+
+        if field_name in medium_severity:
+            return "MEDIUM"
+
+        return "LOW"
+
+    # ------------------------------------------------------------------
+    # Telemetry indicators
+    # ------------------------------------------------------------------
+
+    def telemetry_indicators(self) -> list[dict[str, Any]]:
+        indicators: list[dict[str, Any]] = []
+
+        for record in self.evidence.telemetry:
+
+            # ----------------------------------------------------------
+            # RX message loss
+            # ----------------------------------------------------------
+
+            if (
+                record.rx_message_lost_count is not None
+                and record.rx_message_lost_count > 0
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="telemetry",
+                        indicator_type="RX_MESSAGE_LOSS",
+                        severity="LOW",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized telemetry record "
+                            "contains received-message loss."
+                        ),
+                        evidence={
+                            "telemetry_record": (
+                                serialize_evidence(record)
+                            ),
+                            "metric": {
+                                "name": "rx_message_lost_count",
+                                "value": (
+                                    record.rx_message_lost_count
+                                ),
+                            },
+                        },
+                    )
+                )
+
+            # ----------------------------------------------------------
+            # RX parse errors
+            # ----------------------------------------------------------
+
+            if (
+                record.rx_parse_errors is not None
+                and record.rx_parse_errors > 0
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="telemetry",
+                        indicator_type="RX_PARSE_ERRORS",
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized telemetry record "
+                            "contains receive-side parsing errors."
+                        ),
+                        evidence={
+                            "telemetry_record": (
+                                serialize_evidence(record)
+                            ),
+                            "metric": {
+                                "name": "rx_parse_errors",
+                                "value": (
+                                    record.rx_parse_errors
+                                ),
+                            },
+                        },
+                    )
+                )
+
+            # ----------------------------------------------------------
+            # RX buffer overruns
+            # ----------------------------------------------------------
+
+            if (
+                record.rx_buffer_overruns is not None
+                and record.rx_buffer_overruns > 0
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="telemetry",
+                        indicator_type="RX_BUFFER_OVERRUN",
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized telemetry record "
+                            "contains receive buffer overruns."
+                        ),
+                        evidence={
+                            "telemetry_record": (
+                                serialize_evidence(record)
+                            ),
+                            "metric": {
+                                "name": "rx_buffer_overruns",
+                                "value": (
+                                    record.rx_buffer_overruns
+                                ),
+                            },
+                        },
+                    )
+                )
+
+            # ----------------------------------------------------------
+            # TX buffer overruns
+            # ----------------------------------------------------------
+
+            if (
+                record.tx_buffer_overruns is not None
+                and record.tx_buffer_overruns > 0
+            ):
+                indicators.append(
+                    self._indicator(
+                        category="telemetry",
+                        indicator_type="TX_BUFFER_OVERRUN",
+                        severity="MEDIUM",
+                        timestamp=record.timestamp,
+                        confidence="HIGH",
+                        description=(
+                            "The normalized telemetry record "
+                            "contains transmit buffer overruns."
+                        ),
+                        evidence={
+                            "telemetry_record": (
+                                serialize_evidence(record)
+                            ),
+                            "metric": {
+                                "name": "tx_buffer_overruns",
+                                "value": (
+                                    record.tx_buffer_overruns
+                                ),
+                            },
+                        },
+                    )
+                )
+
+        return indicators
+
+    # ------------------------------------------------------------------
+    # Evidence quality
+    # ------------------------------------------------------------------
+
+    def evidence_quality_indicators(self) -> list[dict[str, Any]]:
+        indicators: list[dict[str, Any]] = []
+
+        if not self.evidence.gps:
+            indicators.append(
+                self._indicator(
+                    category="evidence_quality",
+                    indicator_type="NO_GPS_RECORDS",
+                    severity="INFO",
+                    timestamp=None,
+                    confidence="HIGH",
+                    description=(
+                        "No normalized GPS records were available "
+                        "in the evidence."
+                    ),
+                    evidence={
+                        "record_type": "gps",
+                        "record_count": 0,
+                    },
+                )
+            )
+
+        if not self.evidence.states:
+            indicators.append(
+                self._indicator(
+                    category="evidence_quality",
+                    indicator_type="NO_STATE_RECORDS",
+                    severity="INFO",
+                    timestamp=None,
+                    confidence="HIGH",
+                    description=(
+                        "No normalized flight-state records were "
+                        "available in the evidence."
+                    ),
+                    evidence={
+                        "record_type": "states",
+                        "record_count": 0,
+                    },
+                )
+            )
+
+        if not self.evidence.commands:
+            indicators.append(
+                self._indicator(
+                    category="evidence_quality",
+                    indicator_type="NO_COMMAND_RECORDS",
+                    severity="INFO",
+                    timestamp=None,
+                    confidence="HIGH",
+                    description=(
+                        "No normalized command records were "
+                        "available in the evidence."
+                    ),
+                    evidence={
+                        "record_type": "commands",
+                        "record_count": 0,
+                    },
+                )
+            )
+
+        return indicators
+
+    # ------------------------------------------------------------------
+    # Indicator helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _indicator(
+        category: str,
+        indicator_type: str,
+        severity: str,
+        timestamp: float | None,
+        confidence: str,
+        description: str,
+        evidence: dict[str, Any],
+        end_timestamp: float | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "category": category,
+            "indicator_type": indicator_type,
+            "severity": severity,
+            "timestamp_seconds": timestamp,
+            "end_timestamp_seconds": end_timestamp,
+            "confidence": confidence,
+            "description": description,
+            "evidence": evidence,
+        }
+
+    # ------------------------------------------------------------------
+    # GPS distance helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _distance_meters(
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
+    ) -> float:
+        """
+        Approximate great-circle distance using the Haversine formula.
+        """
+
+        earth_radius = 6371000.0
+
+        lat1_rad = radians(lat1)
+        lat2_rad = radians(lat2)
+
+        delta_lat = radians(lat2 - lat1)
+        delta_lon = radians(lon2 - lon1)
+
+        a = (
+            sin(delta_lat / 2) ** 2
+            + cos(lat1_rad)
+            * cos(lat2_rad)
+            * sin(delta_lon / 2) ** 2
+        )
+
+        c = 2 * atan2(
+            sqrt(a),
+            sqrt(1 - a),
+        )
+
+        return earth_radius * c
+

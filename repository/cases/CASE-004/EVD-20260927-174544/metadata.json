@@ -1,0 +1,14 @@
+{
+    "case_id": "CASE-004",
+    "evidence_id": "EVD-20260927-174544",
+    "source": "/home/srujan-mishrikotkar/22_43_32.ulg",
+    "acquired_file": "/home/srujan-mishrikotkar/drone_forensics/repository/cases/CASE-004/EVD-20260927-174544/evidence/22_43_32.ulg",
+    "filename": "22_43_32.ulg",
+    "file_size_bytes": 11905832,
+    "hash_algorithm": "SHA-256",
+    "original_hash": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3",
+    "forensic_copy_hash": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3",
+    "integrity_verified": true,
+    "acquisition_timestamp_utc": "2026-09-27T17:45:44.836512+00:00",
+    "operator": "drone_forensics"
+}

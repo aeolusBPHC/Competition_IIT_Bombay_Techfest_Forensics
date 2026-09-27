@@ -1,0 +1,203 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from ml.trajectory_features import TrajectoryDataset
+
+
+@dataclass
+class TrajectoryWindows:
+    """Supervised sequence dataset for trajectory prediction."""
+
+    X: np.ndarray
+    y: np.ndarray
+
+    input_timestamps: np.ndarray
+    target_timestamps: np.ndarray
+
+    target_mode: str = "absolute"
+
+
+def _regular_time_grid(
+    timestamps: np.ndarray,
+    interval_s: float,
+) -> np.ndarray:
+    """Create a regular time grid spanning the observations."""
+
+    if interval_s <= 0:
+        raise ValueError("interval_s must be positive.")
+
+    if len(timestamps) < 2:
+        raise ValueError(
+            "At least two timestamps are required."
+        )
+
+    start = float(timestamps[0])
+    end = float(timestamps[-1])
+
+    if end <= start:
+        raise ValueError(
+            "Trajectory timestamps must increase."
+        )
+
+    count = int(
+        np.floor((end - start) / interval_s)
+    ) + 1
+
+    return start + np.arange(count) * interval_s
+
+
+def _resample_features(
+    dataset: TrajectoryDataset,
+    interval_s: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Interpolate trajectory features onto a regular time grid.
+
+    Positions and velocities are interpolated independently.
+    """
+
+    grid = _regular_time_grid(
+        dataset.timestamps,
+        interval_s,
+    )
+
+    features = np.empty(
+        (len(grid), dataset.features.shape[1]),
+        dtype=float,
+    )
+
+    for column in range(dataset.features.shape[1]):
+        features[:, column] = np.interp(
+            grid,
+            dataset.timestamps,
+            dataset.features[:, column],
+        )
+
+    return grid, features
+
+
+def make_trajectory_windows(
+    dataset: TrajectoryDataset,
+    history_steps: int,
+    prediction_steps: int,
+    interval_s: float = 0.1,
+    target_mode: str = "absolute",
+) -> TrajectoryWindows:
+    """
+    Build fixed-length supervised trajectory sequences.
+
+    X shape:
+        (samples, history_steps, features)
+
+    y shape:
+        (samples, prediction_steps, 3)
+
+    target_mode="absolute":
+        y contains future x/y/z positions.
+
+    target_mode="relative":
+        y contains future displacement relative to the
+        final observed history position.
+
+        For a window whose final observed position is P(t):
+
+            y[k] = P(t + future_time[k]) - P(t)
+    """
+
+    if history_steps <= 0:
+        raise ValueError(
+            "history_steps must be positive."
+        )
+
+    if prediction_steps <= 0:
+        raise ValueError(
+            "prediction_steps must be positive."
+        )
+
+    if target_mode not in {"absolute", "relative"}:
+        raise ValueError(
+            "target_mode must be 'absolute' or 'relative'."
+        )
+
+    timestamps, features = _resample_features(
+        dataset,
+        interval_s,
+    )
+
+    positions = features[:, :3]
+
+    required = (
+        history_steps
+        + prediction_steps
+    )
+
+    if len(features) < required:
+        raise ValueError(
+            "Trajectory is too short for the requested "
+            f"history/prediction windows: need {required} "
+            f"points, found {len(features)}."
+        )
+
+    X = []
+    y = []
+    input_times = []
+    target_times = []
+
+    max_start = (
+        len(features)
+        - history_steps
+        - prediction_steps
+        + 1
+    )
+
+    for start in range(max_start):
+        input_end = start + history_steps
+        target_end = (
+            input_end + prediction_steps
+        )
+
+        history = features[start:input_end]
+
+        future_positions = positions[
+            input_end:target_end
+        ]
+
+        if target_mode == "absolute":
+            target = future_positions
+        else:
+            last_observed_position = positions[
+                input_end - 1
+            ]
+
+            target = (
+                future_positions
+                - last_observed_position
+            )
+
+        X.append(history)
+        y.append(target)
+
+        input_times.append(
+            timestamps[input_end - 1]
+        )
+
+        target_times.append(
+            timestamps[input_end:target_end]
+        )
+
+    return TrajectoryWindows(
+        X=np.asarray(X, dtype=float),
+        y=np.asarray(y, dtype=float),
+        input_timestamps=np.asarray(
+            input_times,
+            dtype=float,
+        ),
+        target_timestamps=np.asarray(
+            target_times,
+            dtype=float,
+        ),
+        target_mode=target_mode,
+    )

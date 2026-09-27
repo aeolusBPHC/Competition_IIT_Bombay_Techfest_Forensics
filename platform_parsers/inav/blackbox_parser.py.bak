@@ -1,0 +1,180 @@
+from pathlib import Path
+
+from platform_parsers.common.base_parser import BaseForensicParser
+from platform_parsers.common.evidence_model import EvidenceMetadata
+
+
+class INAVBlackboxParser(BaseForensicParser):
+    """
+    Foundation parser for INAV Blackbox logs.
+
+    Current scope:
+    - evidence identification
+    - Blackbox header extraction
+    - metadata normalization
+    - common parser interface
+
+    Detailed evidence extraction will be implemented later.
+    """
+
+    platform_name = "INAV"
+
+    supported_formats = [
+        "BLACKBOX",
+        ".bbl",
+    ]
+
+    BLACKBOX_MARKER = (
+        b"H Product:Blackbox flight data recorder by Nicholas Sherlock\n"
+    )
+
+    @classmethod
+    def identify(cls, evidence_path):
+        path = Path(evidence_path)
+
+        if not path.exists():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "File does not exist",
+            }
+
+        if not path.is_file():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "Evidence path is not a file",
+            }
+
+        try:
+            with path.open("rb") as file:
+                data = file.read(256 * 1024)
+
+            marker_index = data.find(cls.BLACKBOX_MARKER)
+
+            if marker_index == -1:
+                return {
+                    "supported": False,
+                    "platform": cls.platform_name,
+                    "format": None,
+                    "confidence": "NONE",
+                    "reason": "INAV Blackbox marker not detected",
+                }
+
+            header = cls._parse_headers(data[marker_index:])
+
+            firmware_type = header.get("Firmware type", "")
+
+            if firmware_type.upper() == "INAV":
+                confidence = "HIGH"
+            else:
+                confidence = "LOW"
+
+            if confidence == "LOW":
+                return {
+                    "supported": False,
+                    "platform": cls.platform_name,
+                    "format": None,
+                    "confidence": "LOW",
+                    "reason": (
+                        "Blackbox marker detected, but INAV firmware "
+                        "identity was not confirmed"
+                    ),
+                }
+
+            return {
+                "supported": True,
+                "platform": cls.platform_name,
+                "format": "BLACKBOX",
+                "confidence": confidence,
+                "reason": "INAV Blackbox flight log detected",
+                "indicators": {
+                    "marker_detected": True,
+                    "firmware_type": firmware_type,
+                    "data_version": header.get("Data version"),
+                },
+            }
+
+        except Exception as exc:
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "ERROR",
+                "reason": f"INAV Blackbox detection failed: {exc}",
+            }
+
+    @staticmethod
+    def _parse_headers(data):
+        headers = {}
+
+        for line in data.splitlines():
+
+            if not line.startswith(b"H "):
+                break
+
+            try:
+                text = line.decode("ascii", errors="replace")
+            except Exception:
+                continue
+
+            text = text[2:]
+
+            if ":" not in text:
+                continue
+
+            name, value = text.split(":", 1)
+
+            headers[name.strip()] = value.strip()
+
+        return headers
+
+    def _load_headers(self):
+        with self.evidence_path.open("rb") as file:
+            data = file.read(256 * 1024)
+
+        marker_index = data.find(self.BLACKBOX_MARKER)
+
+        if marker_index == -1:
+            return {}
+
+        return self._parse_headers(data[marker_index:])
+
+    def get_metadata(self):
+        headers = self._load_headers()
+
+        firmware_type = headers.get("Firmware type")
+        firmware_revision = headers.get("Firmware revision")
+
+        return EvidenceMetadata(
+            source_file=str(self.evidence_path),
+            platform=self.platform_name,
+            format="BLACKBOX",
+            firmware=firmware_type,
+            firmware_version=firmware_revision,
+            metadata={
+                "blackbox_headers": headers,
+            },
+        )
+
+    def extract_gps(self):
+        return []
+
+    def extract_commands(self):
+        return []
+
+    def extract_command_acks(self):
+        return []
+
+    def extract_states(self):
+        return []
+
+    def extract_parameters(self):
+        return []
+
+    def extract_events(self):
+        return []

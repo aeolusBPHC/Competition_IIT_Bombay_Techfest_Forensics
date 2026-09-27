@@ -1,0 +1,372 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import cos, radians
+from typing import Any
+
+import numpy as np
+
+from platform_parsers.common.evidence_model import (
+    GPSRecord,
+    NavigationRecord,
+    NormalizedEvidence,
+)
+
+
+@dataclass
+class TrajectoryPoint:
+    """Platform-independent metric trajectory observation."""
+
+    timestamp: float
+
+    x_m: float
+    y_m: float
+    z_m: float
+
+    vx_m_s: float
+    vy_m_s: float
+    vz_m_s: float
+
+    speed_m_s: float | None = None
+    heading_deg: float | None = None
+
+    horizontal_accuracy_m: float | None = None
+    vertical_accuracy_m: float | None = None
+
+    position_valid: bool = True
+
+
+@dataclass
+class TrajectoryDataset:
+    """Numeric trajectory data suitable for ML."""
+
+    timestamps: np.ndarray
+    positions: np.ndarray
+    velocities: np.ndarray
+    features: np.ndarray
+    feature_names: list[str]
+
+
+def _finite(value: Any) -> float | None:
+    """Return a finite float or None."""
+    if value is None:
+        return None
+
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not np.isfinite(result):
+        return None
+
+    return result
+
+
+def _extract_position_records(
+    evidence: NormalizedEvidence,
+) -> list[tuple[float, float, float, float]]:
+    """
+    Extract timestamped global positions.
+
+    Navigation records are preferred because they are part of the
+    normalized navigation schema. GPS records are used as fallback.
+    """
+
+    navigation = []
+
+    for record in evidence.navigation:
+        lat = _finite(record.latitude)
+        lon = _finite(record.longitude)
+        alt = _finite(record.altitude_m)
+
+        if lat is None or lon is None or alt is None:
+            continue
+
+        if record.latitude_longitude_valid is False:
+            continue
+
+        navigation.append(
+            (
+                float(record.timestamp),
+                lat,
+                lon,
+                alt,
+            )
+        )
+
+    if navigation:
+        navigation.sort(key=lambda item: item[0])
+        return navigation
+
+    gps = []
+
+    for record in evidence.gps:
+        lat = _finite(record.latitude)
+        lon = _finite(record.longitude)
+        alt = _finite(record.altitude_m)
+
+        if lat is None or lon is None or alt is None:
+            continue
+
+        if record.fix_type is not None and record.fix_type <= 0:
+            continue
+
+        gps.append(
+            (
+                float(record.timestamp),
+                lat,
+                lon,
+                alt,
+            )
+        )
+
+    gps.sort(key=lambda item: item[0])
+    return gps
+
+
+def _latlon_to_local_metric(
+    latitude: np.ndarray,
+    longitude: np.ndarray,
+    altitude: np.ndarray,
+) -> np.ndarray:
+    """
+    Convert latitude/longitude/altitude to a local tangent-plane
+    approximation in metres.
+
+    x = east
+    y = north
+    z = relative altitude
+
+    This is intended for local drone trajectories, not global
+    geodesic surveying.
+    """
+
+    if len(latitude) == 0:
+        return np.empty((0, 3), dtype=float)
+
+    earth_radius_m = 6_378_137.0
+
+    lat0 = radians(float(latitude[0]))
+    lon0 = radians(float(longitude[0]))
+
+    lat = np.radians(latitude)
+    lon = np.radians(longitude)
+
+    x = (
+        earth_radius_m
+        * (lon - lon0)
+        * cos(lat0)
+    )
+
+    y = earth_radius_m * (lat - lat0)
+
+    z = altitude - altitude[0]
+
+    return np.column_stack((x, y, z))
+
+
+def _derive_velocity(
+    timestamps: np.ndarray,
+    positions: np.ndarray,
+) -> np.ndarray:
+    """Derive velocity from metric position observations."""
+
+    if len(positions) == 0:
+        return np.empty((0, 3), dtype=float)
+
+    if len(positions) == 1:
+        return np.zeros((1, 3), dtype=float)
+
+    velocity = np.zeros_like(positions, dtype=float)
+
+    dt = np.diff(timestamps)
+
+    valid = dt > 0
+
+    velocity[1:][valid] = (
+        positions[1:][valid] - positions[:-1][valid]
+    ) / dt[valid, None]
+
+    # Use the first valid derivative for the first sample.
+    first_valid = np.flatnonzero(valid)
+
+    if len(first_valid):
+        velocity[0] = velocity[first_valid[0] + 1]
+
+    # Invalid/repeated timestamps remain zero.
+    velocity[~np.isfinite(velocity)] = 0.0
+
+    return velocity
+
+
+def _nearest_gps_attributes(
+    evidence: NormalizedEvidence,
+    timestamps: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Attach nearest normalized GPS speed and heading."""
+
+    speeds = np.full(len(timestamps), np.nan, dtype=float)
+    headings = np.full(len(timestamps), np.nan, dtype=float)
+
+    records = []
+
+    for record in evidence.gps:
+        if record.speed_m_s is None and record.heading_deg is None:
+            continue
+
+        records.append(
+            (
+                float(record.timestamp),
+                _finite(record.speed_m_s),
+                _finite(record.heading_deg),
+            )
+        )
+
+    if not records:
+        return speeds, headings
+
+    records.sort(key=lambda item: item[0])
+
+    record_times = np.asarray(
+        [item[0] for item in records],
+        dtype=float,
+    )
+
+    for index, timestamp in enumerate(timestamps):
+        nearest = int(
+            np.argmin(np.abs(record_times - timestamp))
+        )
+
+        speed = records[nearest][1]
+        heading = records[nearest][2]
+
+        if speed is not None:
+            speeds[index] = speed
+
+        if heading is not None:
+            headings[index] = heading
+
+    return speeds, headings
+
+
+def build_trajectory_dataset(
+    evidence: NormalizedEvidence,
+) -> TrajectoryDataset:
+    """
+    Convert NormalizedEvidence into a platform-independent trajectory
+    dataset.
+
+    Feature columns:
+
+    x_m
+    y_m
+    z_m
+    vx_m_s
+    vy_m_s
+    vz_m_s
+    speed_m_s
+    heading_sin
+    heading_cos
+    position_valid
+    """
+
+    records = _extract_position_records(evidence)
+
+    if not records:
+        raise ValueError(
+            "No valid normalized position observations were found."
+        )
+
+    timestamps = np.asarray(
+        [record[0] for record in records],
+        dtype=float,
+    )
+
+    latitude = np.asarray(
+        [record[1] for record in records],
+        dtype=float,
+    )
+
+    longitude = np.asarray(
+        [record[2] for record in records],
+        dtype=float,
+    )
+
+    altitude = np.asarray(
+        [record[3] for record in records],
+        dtype=float,
+    )
+
+    positions = _latlon_to_local_metric(
+        latitude,
+        longitude,
+        altitude,
+    )
+
+    velocities = _derive_velocity(
+        timestamps,
+        positions,
+    )
+
+    gps_speed, gps_heading = _nearest_gps_attributes(
+        evidence,
+        timestamps,
+    )
+
+    speed = np.linalg.norm(
+        velocities,
+        axis=1,
+    )
+
+    missing_speed = ~np.isfinite(gps_speed)
+    gps_speed[missing_speed] = speed[missing_speed]
+
+    heading_sin = np.zeros(len(timestamps), dtype=float)
+    heading_cos = np.ones(len(timestamps), dtype=float)
+
+    valid_heading = np.isfinite(gps_heading)
+
+    heading_radians = np.radians(
+        gps_heading[valid_heading]
+    )
+
+    heading_sin[valid_heading] = np.sin(
+        heading_radians
+    )
+
+    heading_cos[valid_heading] = np.cos(
+        heading_radians
+    )
+
+    features = np.column_stack(
+        (
+            positions,
+            velocities,
+            gps_speed,
+            heading_sin,
+            heading_cos,
+            np.ones(len(timestamps)),
+        )
+    )
+
+    feature_names = [
+        "x_m",
+        "y_m",
+        "z_m",
+        "vx_m_s",
+        "vy_m_s",
+        "vz_m_s",
+        "speed_m_s",
+        "heading_sin",
+        "heading_cos",
+        "position_valid",
+    ]
+
+    return TrajectoryDataset(
+        timestamps=timestamps,
+        positions=positions,
+        velocities=velocities,
+        features=features,
+        feature_names=feature_names,
+    )

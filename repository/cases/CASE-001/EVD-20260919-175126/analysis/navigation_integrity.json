@@ -1,0 +1,63 @@
+{
+    "case_id": "CASE-001",
+    "evidence_id": "EVD-20260919-175126",
+    "source": "repository/cases/CASE-001/EVD-20260919-175126/analysis/gps_data.json",
+    "sample_count": 70755,
+    "gps_state_distribution": {
+        "spoofing_state": {
+            "0": 70755
+        },
+        "jamming_state": {
+            "0": 70755
+        },
+        "jamming_indicator": {
+            "0": 70755
+        },
+        "authentication_state": {
+            "0": 70755
+        },
+        "fix_type": {
+            "3": 70755
+        }
+    },
+    "state_transitions": {
+        "spoofing": [],
+        "jamming": [],
+        "fix_type": [],
+        "satellites": []
+    },
+    "gps_quality": {
+        "satellites": {
+            "min": 10,
+            "max": 10,
+            "average": 10
+        },
+        "hdop": {
+            "min": 0.699999988079071,
+            "max": 0.699999988079071,
+            "average": 0.699999988079071
+        },
+        "vdop": {
+            "min": 1.100000023841858,
+            "max": 1.100000023841858,
+            "average": 1.100000023841858
+        },
+        "speed_m_s": {
+            "min": 0.00010420135367894545,
+            "max": 0.09176790714263916,
+            "average": 0.023849095327512438
+        }
+    },
+    "position_analysis": {
+        "samples_analyzed": 70754,
+        "maximum_consecutive_position_change_m": 0.03842031848727194,
+        "average_consecutive_position_change_m": 0.008687707209217082
+    },
+    "observations": [
+        "No asserted GPS spoofing state was observed in the recorded GPS samples.",
+        "No asserted GPS jamming state was observed in the recorded GPS samples.",
+        "GPS fix type remained unchanged throughout the analyzed GPS records.",
+        "Satellite count did not change during the analyzed GPS records."
+    ],
+    "forensic_note": "Navigation state observations are derived from recorded PX4 telemetry. They should not by themselves be interpreted as proof or exclusion of a cyberattack."
+}

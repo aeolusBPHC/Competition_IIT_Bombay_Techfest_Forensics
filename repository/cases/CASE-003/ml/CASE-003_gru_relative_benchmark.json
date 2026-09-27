@@ -1,0 +1,246 @@
+{
+  "schema_version": "1.0",
+  "case_id": "CASE-003",
+  "evidence": "repository/cases/CASE-003/raw/px4_sitl_qgc_mission.ulg",
+  "device": "cpu",
+  "seed": 42,
+  "target_mode": "relative",
+  "model": {
+    "name": "trajectory_gru",
+    "type": "recurrent_neural_network",
+    "hidden_size": 64,
+    "num_layers": 2,
+    "parameters": 45662,
+    "best_validation_loss": 0.14512934168444924
+  },
+  "trajectory": {
+    "points": 106224,
+    "start_time_s": 6.856,
+    "end_time_s": 856.64,
+    "duration_s": 849.784
+  },
+  "window_configuration": {
+    "history_steps": 20,
+    "history_duration_s": 2.0,
+    "prediction_steps": 10,
+    "prediction_horizon_s": 1.0,
+    "interval_s": 0.1,
+    "feature_count": 10,
+    "target_mode": "relative"
+  },
+  "chronological_split": {
+    "train": {
+      "start_s": 6.856,
+      "end_s": 601.7048,
+      "window_count": 5920
+    },
+    "validation": {
+      "start_s": 601.7048,
+      "end_s": 729.1723999999999,
+      "window_count": 1246
+    },
+    "test": {
+      "start_s": 729.1723999999999,
+      "end_s": 856.64,
+      "window_count": 1246
+    }
+  },
+  "training": {
+    "epochs_requested": 40,
+    "epochs_completed": 15,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "early_stopping_patience": 7,
+    "history": [
+      {
+        "epoch": 1,
+        "train_loss": 0.5701230692551346,
+        "validation_loss": 0.18576029550589107
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.05123598103889743,
+        "validation_loss": 0.1681670852208788
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.01052258492422265,
+        "validation_loss": 0.1501229757362346
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.005586528843520461,
+        "validation_loss": 0.15000878160230421
+      },
+      {
+        "epoch": 5,
+        "train_loss": 0.0047489180931242535,
+        "validation_loss": 0.14587208662887685
+      },
+      {
+        "epoch": 6,
+        "train_loss": 0.004289375343108298,
+        "validation_loss": 0.14701216179058316
+      },
+      {
+        "epoch": 7,
+        "train_loss": 0.003947224710891779,
+        "validation_loss": 0.14611266671200052
+      },
+      {
+        "epoch": 8,
+        "train_loss": 0.003582014617308773,
+        "validation_loss": 0.14512934168444924
+      },
+      {
+        "epoch": 9,
+        "train_loss": 0.0033485873655818804,
+        "validation_loss": 0.14654250782323974
+      },
+      {
+        "epoch": 10,
+        "train_loss": 0.0032676512312546776,
+        "validation_loss": 0.1486081757506484
+      },
+      {
+        "epoch": 11,
+        "train_loss": 0.0035137472781226844,
+        "validation_loss": 0.14926769202021975
+      },
+      {
+        "epoch": 12,
+        "train_loss": 0.0027627267912533637,
+        "validation_loss": 0.1485917577774146
+      },
+      {
+        "epoch": 13,
+        "train_loss": 0.0027309386047056398,
+        "validation_loss": 0.15224060946313087
+      },
+      {
+        "epoch": 14,
+        "train_loss": 0.0029693493490560432,
+        "validation_loss": 0.15298808848613912
+      },
+      {
+        "epoch": 15,
+        "train_loss": 0.002801806684205862,
+        "validation_loss": 0.1568572697862026
+      }
+    ]
+  },
+  "test": {
+    "window_count": 1246,
+    "gru": {
+      "overall": {
+        "ade_m": 1.1200955367228818,
+        "fde_m": 2.0382828012783474
+      },
+      "motion": {
+        "stationary": {
+          "window_count": 811,
+          "ade_m": 0.49917377549905984,
+          "fde_m": 0.9033245351753424
+        },
+        "moving": {
+          "window_count": 418,
+          "ade_m": 2.349313645060069,
+          "fde_m": 4.2851524638549146
+        },
+        "intermediate": {
+          "window_count": 17,
+          "ade_m": 0.517411952462603,
+          "fde_m": 0.9359083808390127
+        }
+      },
+      "horizon_ade_m": [
+        0.2557950920354339,
+        0.4243358212188396,
+        0.5577805884185897,
+        0.9055025461046413,
+        1.0356308974896558,
+        1.211059436892406,
+        1.4198378764736503,
+        1.596503286944403,
+        1.75622702037286,
+        2.038282801278347
+      ]
+    },
+    "constant_velocity": {
+      "overall": {
+        "ade_m": 0.02599153206201807,
+        "fde_m": 0.06305841995948427
+      },
+      "motion": {
+        "stationary": {
+          "window_count": 811,
+          "ade_m": 0.011071901722648615,
+          "fde_m": 0.02506789254447972
+        },
+        "moving": {
+          "window_count": 418,
+          "ade_m": 0.05513698598737386,
+          "fde_m": 0.137313846077091
+        },
+        "intermediate": {
+          "window_count": 17,
+          "ade_m": 0.021110382910835997,
+          "fde_m": 0.049620162101194694
+        }
+      },
+      "horizon_ade_m": [
+        0.0009024492115185525,
+        0.003325359685100019,
+        0.007136786717111612,
+        0.012210868546059616,
+        0.018417427323580152,
+        0.02564824458407042,
+        0.033810027882140985,
+        0.04281613076608672,
+        0.05258960594502837,
+        0.06305841995948434
+      ]
+    }
+  },
+  "normalization": {
+    "features": {
+      "mean": [
+        -84.38936635724842,
+        74.1022303865034,
+        17.097181952674998,
+        -0.21539924491717674,
+        0.4574171467076431,
+        0.08444636688899736,
+        1.604084324413244,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "std": [
+        142.45538709061256,
+        123.0135815177974,
+        23.411438895102826,
+        2.4239440286346507,
+        1.3224457310684192,
+        0.4448009605008393,
+        2.304444225847474,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "targets": {
+      "mean": [
+        -0.11258260377060965,
+        0.25010569115240555,
+        0.046425635925418686
+      ],
+      "std": [
+        1.512242330248343,
+        0.8319891005270099,
+        0.2766751970744476
+      ]
+    },
+    "fit_on": "training_windows_only"
+  }
+}

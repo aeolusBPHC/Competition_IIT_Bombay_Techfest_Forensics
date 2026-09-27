@@ -1,0 +1,603 @@
+{
+    "case_id": "CASE-001",
+    "evidence_id": "EVD-20260919-175126",
+    "source": "repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg",
+    "event_count": 44,
+    "timeline_start_us": 75520000,
+    "timeline_end_us": 1236160000,
+    "events": [
+        {
+            "timestamp_us": 75520000,
+            "timestamp_seconds": 75.52,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 211,
+                "param1": 4.430299406231637e+35,
+                "param2": 1.0,
+                "param3": 6.202078699570123e+26,
+                "param4": 4.3235662818277906e-41,
+                "param5": 4.67125088393495e-310,
+                "param6": 6.54736164833623e-310,
+                "param7": 3.689491525992886e+35
+            }
+        },
+        {
+            "timestamp_us": 75528000,
+            "timestamp_seconds": 75.528,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 211,
+                "result": 5
+            }
+        },
+        {
+            "timestamp_us": 76520000,
+            "timestamp_seconds": 76.52,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 76524000,
+            "timestamp_seconds": 76.524,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 76620000,
+            "timestamp_seconds": 76.62,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 211,
+                "result": 0
+            }
+        },
+        {
+            "timestamp_us": 76632000,
+            "timestamp_seconds": 76.632,
+            "event_type": "GCS_CONNECTION_STATE_CHANGE",
+            "source_dataset": "vehicle_status",
+            "severity": "INFO",
+            "details": {
+                "previous": 1,
+                "current": 0
+            }
+        },
+        {
+            "timestamp_us": 81620000,
+            "timestamp_seconds": 81.62,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 81624000,
+            "timestamp_seconds": 81.624,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 88544000,
+            "timestamp_seconds": 88.544,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 88556000,
+            "timestamp_seconds": 88.556,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 100400000,
+            "timestamp_seconds": 100.4,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 100404000,
+            "timestamp_seconds": 100.404,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 119184000,
+            "timestamp_seconds": 119.184,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 119188000,
+            "timestamp_seconds": 119.188,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 923532000,
+            "timestamp_seconds": 923.532,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 923540000,
+            "timestamp_seconds": 923.54,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 924584000,
+            "timestamp_seconds": 924.584,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 924588000,
+            "timestamp_seconds": 924.588,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 925724000,
+            "timestamp_seconds": 925.724,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 926008000,
+            "timestamp_seconds": 926.008,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 943716000,
+            "timestamp_seconds": 943.716,
+            "event_type": "GCS_CONNECTION_STATE_CHANGE",
+            "source_dataset": "vehicle_status",
+            "severity": "WARNING",
+            "details": {
+                "previous": 0,
+                "current": 1
+            }
+        },
+        {
+            "timestamp_us": 944220000,
+            "timestamp_seconds": 944.22,
+            "event_type": "GCS_CONNECTION_STATE_CHANGE",
+            "source_dataset": "vehicle_status",
+            "severity": "INFO",
+            "details": {
+                "previous": 1,
+                "current": 0
+            }
+        },
+        {
+            "timestamp_us": 946192000,
+            "timestamp_seconds": 946.192,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 946196000,
+            "timestamp_seconds": 946.196,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 953692000,
+            "timestamp_seconds": 953.692,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 953780000,
+            "timestamp_seconds": 953.78,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 957200000,
+            "timestamp_seconds": 957.2,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 957724000,
+            "timestamp_seconds": 957.724,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 957756000,
+            "timestamp_seconds": 957.756,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 1193196000,
+            "timestamp_seconds": 1193.196,
+            "event_type": "GCS_CONNECTION_STATE_CHANGE",
+            "source_dataset": "vehicle_status",
+            "severity": "WARNING",
+            "details": {
+                "previous": 0,
+                "current": 1
+            }
+        },
+        {
+            "timestamp_us": 1194172000,
+            "timestamp_seconds": 1194.172,
+            "event_type": "GCS_CONNECTION_STATE_CHANGE",
+            "source_dataset": "vehicle_status",
+            "severity": "INFO",
+            "details": {
+                "previous": 1,
+                "current": 0
+            }
+        },
+        {
+            "timestamp_us": 1198156000,
+            "timestamp_seconds": 1198.156,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 1198160000,
+            "timestamp_seconds": 1198.16,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 1205656000,
+            "timestamp_seconds": 1205.656,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 1205752000,
+            "timestamp_seconds": 1205.752,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 1217156000,
+            "timestamp_seconds": 1217.156,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 1217160000,
+            "timestamp_seconds": 1217.16,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        },
+        {
+            "timestamp_us": 1236156000,
+            "timestamp_seconds": 1236.156,
+            "event_type": "COMMAND_ACK",
+            "source_dataset": "vehicle_command_ack",
+            "severity": "INFO",
+            "details": {
+                "command": 512,
+                "result": 2
+            }
+        },
+        {
+            "timestamp_us": 1236160000,
+            "timestamp_seconds": 1236.16,
+            "event_type": "VEHICLE_COMMAND",
+            "source_dataset": "vehicle_command",
+            "severity": "INFO",
+            "details": {
+                "command": 521,
+                "param1": 1.0,
+                "param2": 0.0,
+                "param3": 0.0,
+                "param4": 0.0,
+                "param5": 0.0,
+                "param6": 0.0,
+                "param7": 0.0
+            }
+        }
+    ],
+    "forensic_note": "Events represent observations reconstructed from recorded PX4 telemetry. Event classification does not by itself establish causality or malicious activity."
+}

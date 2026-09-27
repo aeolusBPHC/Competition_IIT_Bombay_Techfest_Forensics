@@ -1,0 +1,254 @@
+{
+  "report_type": "normalized_forensic_analysis",
+  "report_version": "1.0",
+  "evidence": {
+    "source_file": "tests/fixtures/synthetic_ardupilot_forensics.bin",
+    "platform": "ArduPilot",
+    "format": "DataFlash",
+    "firmware": null,
+    "firmware_version": null,
+    "vehicle_type": null,
+    "start_time": null,
+    "end_time": null,
+    "duration": null,
+    "metadata": {
+      "schema_count": 7,
+      "message_types": [
+        "GPS",
+        "PARM",
+        "MODE",
+        "ARM",
+        "EV",
+        "ERR",
+        "MAVC"
+      ]
+    }
+  },
+  "record_counts": {
+    "gps": 2,
+    "commands": 1,
+    "command_acks": 0,
+    "states": 2,
+    "parameters": 1,
+    "events": 2
+  },
+  "analysis": {
+    "summary": {
+      "platform": "ArduPilot",
+      "format": "DataFlash",
+      "source_file": "tests/fixtures/synthetic_ardupilot_forensics.bin",
+      "record_counts": {
+        "gps": 2,
+        "commands": 1,
+        "command_acks": 0,
+        "states": 2,
+        "parameters": 1,
+        "events": 2
+      }
+    },
+    "gps": {
+      "available": true,
+      "sample_count": 2,
+      "latitude": {
+        "count": 2,
+        "min": 47.397945,
+        "max": 47.3979451,
+        "average": 47.397945050000004
+      },
+      "longitude": {
+        "count": 2,
+        "min": 8.546176,
+        "max": 8.5461761,
+        "average": 8.54617605
+      },
+      "altitude_m": {
+        "count": 2,
+        "min": 230.0,
+        "max": 231.0,
+        "average": 230.5
+      },
+      "speed_m_s": {
+        "count": 2,
+        "min": 0.5,
+        "max": 0.75,
+        "average": 0.625
+      },
+      "satellites": {
+        "count": 2,
+        "min": 10,
+        "max": 11,
+        "average": 10.5
+      },
+      "time_range": {
+        "start": 1.0,
+        "end": 2.0
+      }
+    },
+    "commands": {
+      "command_count": 1,
+      "acknowledgement_count": 0,
+      "command_id_counts": {
+        "400": 1
+      },
+      "acknowledgement_id_counts": {},
+      "command_ids_with_ack": [],
+      "command_ids_without_ack": [
+        400
+      ],
+      "ack_ids_without_command": []
+    },
+    "states": {
+      "available": true,
+      "state_count": 2,
+      "flight_modes": {
+        "4": 1
+      },
+      "armed_states": {
+        "1": 1
+      },
+      "failsafe_states": {},
+      "gcs_connection_states": {},
+      "time_range": {
+        "start": 3.0,
+        "end": 3.5
+      }
+    },
+    "events": {
+      "event_count": 2,
+      "event_types": {
+        "EV": 1,
+        "ERR": 1
+      },
+      "severity_counts": {}
+    }
+  },
+  "provenance": {
+    "platform": "ArduPilot",
+    "format": "DataFlash",
+    "normalized_records": {
+      "gps": [
+        {
+          "timestamp": 1.0,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 1000000,
+            "I": 0,
+            "Status": 3,
+            "GMS": 100000,
+            "GWk": 2400,
+            "NSats": 10,
+            "HDop": 70,
+            "Lat": 473979450,
+            "Lng": 85461760,
+            "Alt": 23000,
+            "Spd": 0.5,
+            "GCrs": 90.0,
+            "VZ": 0.0,
+            "Yaw": 90.0,
+            "U": 1
+          }
+        },
+        {
+          "timestamp": 2.0,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 2000000,
+            "I": 0,
+            "Status": 3,
+            "GMS": 100000,
+            "GWk": 2400,
+            "NSats": 11,
+            "HDop": 68,
+            "Lat": 473979451,
+            "Lng": 85461761,
+            "Alt": 23100,
+            "Spd": 0.75,
+            "GCrs": 91.0,
+            "VZ": -0.10000000149011612,
+            "Yaw": 90.0,
+            "U": 1
+          }
+        }
+      ],
+      "commands": [
+        {
+          "timestamp": 5.0,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 5000000,
+            "TS": 1,
+            "TC": 1,
+            "SS": 255,
+            "SC": 190,
+            "Fr": 0,
+            "Cmd": 400,
+            "P1": 0.0,
+            "P2": 0.0,
+            "P3": 0.0,
+            "P4": 0.0,
+            "X": 0,
+            "Y": 0,
+            "Z": 0.0,
+            "Res": 0,
+            "WL": 1
+          }
+        }
+      ],
+      "command_acks": [],
+      "states": [
+        {
+          "timestamp": 3.0,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 3000000,
+            "Mode": 4,
+            "ModeNum": 4,
+            "Rsn": 1
+          }
+        },
+        {
+          "timestamp": 3.5,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 3500000,
+            "ArmState": 1,
+            "ArmChecks": 0,
+            "Forced": 0,
+            "Method": 1
+          }
+        }
+      ],
+      "parameters": [
+        {
+          "timestamp": 2.5,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 2500000,
+            "Name": "GPS_TYPE",
+            "Value": 1.0,
+            "Default": 1.0
+          }
+        }
+      ],
+      "events": [
+        {
+          "timestamp": 4.0,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 4000000,
+            "Id": 10
+          }
+        },
+        {
+          "timestamp": 4.5,
+          "source_platform": "ArduPilot",
+          "raw": {
+            "TimeUS": 4500000,
+            "Subsys": 2,
+            "ECode": 2
+          }
+        }
+      ]
+    }
+  }
+}

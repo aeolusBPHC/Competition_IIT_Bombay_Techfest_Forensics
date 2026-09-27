@@ -1,0 +1,160 @@
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+from .evidence_model import NormalizedEvidence
+
+
+class BaseForensicParser(ABC):
+    """
+    Base interface for all drone-platform forensic parsers.
+
+    Core evidence categories are required for every platform.
+    Additional evidence categories are optional capabilities because
+    different flight-log formats expose different information.
+    """
+
+    platform_name = "UNKNOWN"
+    supported_formats = []
+
+    def __init__(self, evidence_path):
+        self.evidence_path = Path(evidence_path)
+
+        if not self.evidence_path.exists():
+            raise FileNotFoundError(
+                f"Evidence file does not exist: {self.evidence_path}"
+            )
+
+        if not self.evidence_path.is_file():
+            raise ValueError(
+                f"Evidence path is not a file: {self.evidence_path}"
+            )
+
+    @classmethod
+    @abstractmethod
+    def identify(cls, evidence_path):
+        """
+        Determine whether this parser can handle the supplied
+        evidence artifact.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_metadata(self):
+        """Extract evidence and platform metadata."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_gps(self):
+        """Extract normalized GPS observations."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_commands(self):
+        """Extract normalized vehicle commands."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_command_acks(self):
+        """Extract normalized command acknowledgements."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_states(self):
+        """Extract normalized vehicle state observations."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_parameters(self):
+        """Extract normalized configuration parameters."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def extract_events(self):
+        """Extract normalized forensic events."""
+        raise NotImplementedError
+
+    # ---------------------------------------------------------
+    # OPTIONAL EVIDENCE CAPABILITIES
+    # ---------------------------------------------------------
+
+    def extract_navigation(self):
+        """
+        Extract normalized navigation observations.
+
+        Optional capability. Platforms that do not expose a
+        normalized navigation source return an empty list.
+        """
+        return []
+
+    def extract_trajectory(self):
+        """
+        Extract platform-native normalized trajectory observations.
+
+        Optional capability. Platforms without a defensible native
+        trajectory representation return an empty list. The ML layer
+        may then use its platform-independent fallback mappings.
+        """
+        return []
+
+    def extract_battery(self):
+        """
+        Extract normalized battery observations.
+
+        Optional capability.
+        """
+        return []
+
+    def extract_telemetry(self):
+        """
+        Extract normalized telemetry observations.
+
+        Optional capability.
+        """
+        return []
+
+    def extract_failsafe(self):
+        """
+        Extract normalized failsafe observations.
+
+        Optional capability.
+        """
+        return []
+
+    # ---------------------------------------------------------
+    # COMPLETE PARSE
+    # ---------------------------------------------------------
+
+    def parse(self):
+        """
+        Run the complete parsing pipeline.
+
+        Core evidence categories are extracted for every platform.
+        Optional evidence categories are included when supported
+        by the platform parser.
+        """
+
+        return NormalizedEvidence(
+            metadata=self.get_metadata(),
+
+            gps=self.extract_gps(),
+
+            navigation=self.extract_navigation(),
+
+            trajectory=self.extract_trajectory(),
+
+            battery=self.extract_battery(),
+
+            telemetry=self.extract_telemetry(),
+
+            failsafe=self.extract_failsafe(),
+
+            commands=self.extract_commands(),
+
+            command_acks=self.extract_command_acks(),
+
+            states=self.extract_states(),
+
+            parameters=self.extract_parameters(),
+
+            events=self.extract_events(),
+        )

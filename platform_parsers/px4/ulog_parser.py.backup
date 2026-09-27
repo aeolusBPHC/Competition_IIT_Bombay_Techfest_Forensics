@@ -1,0 +1,554 @@
+from pathlib import Path
+
+from pyulog import ULog
+
+from platform_parsers.common.base_parser import BaseForensicParser
+
+from platform_parsers.common.evidence_model import (
+    EvidenceMetadata,
+    GPSRecord,
+    CommandRecord,
+    CommandAckRecord,
+    StateRecord,
+)
+
+
+class PX4ULogParser(BaseForensicParser):
+    """
+    Independent PX4 ULog forensic parser.
+
+    This parser belongs to the new multi-platform architecture
+    and does NOT replace the original PX4 parser.
+    """
+
+    platform_name = "PX4"
+
+    supported_formats = [
+        "ULog",
+        ".ulg",
+    ]
+
+    def __init__(self, evidence_path):
+        super().__init__(evidence_path)
+
+        self.ulog = ULog(str(self.evidence_path))
+
+    # ---------------------------------------------------------
+    # IDENTIFICATION
+    # ---------------------------------------------------------
+
+    @classmethod
+    def identify(cls, evidence_path):
+        """
+        Determine whether the supplied file appears to be
+        a PX4 ULog artifact.
+        """
+
+        path = Path(evidence_path)
+
+        if not path.exists():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "File does not exist",
+            }
+
+        if not path.is_file():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "Path is not a file",
+            }
+
+        if path.suffix.lower() == ".ulg":
+            return {
+                "supported": True,
+                "platform": cls.platform_name,
+                "format": "ULog",
+                "confidence": "HIGH",
+                "reason": "ULog file extension detected",
+            }
+
+        return {
+            "supported": False,
+            "platform": cls.platform_name,
+            "format": None,
+            "confidence": "NONE",
+            "reason": "File extension is not .ulg",
+        }
+
+    # ---------------------------------------------------------
+    # INTERNAL DATASET HELPER
+    # ---------------------------------------------------------
+
+    def _dataset(self, name):
+        """
+        Return a PX4 ULog dataset by name.
+        """
+
+        for dataset in self.ulog.data_list:
+            if dataset.name == name:
+                return dataset
+
+        return None
+
+    @staticmethod
+    def _value(data, field, index):
+        """
+        Safely extract a value from pyulog dataset.data.
+
+        pyulog exposes dataset.data as a dictionary of arrays.
+        """
+
+        if data is None:
+            return None
+
+        if field not in data:
+            return None
+
+        try:
+            value = data[field][index]
+
+            if hasattr(value, "item"):
+                return value.item()
+
+            return value
+
+        except (IndexError, KeyError):
+            return None
+
+    # ---------------------------------------------------------
+    # METADATA
+    # ---------------------------------------------------------
+
+    def get_metadata(self):
+        """
+        Extract basic ULog metadata.
+        """
+
+        start_time = None
+        end_time = None
+        duration = None
+
+        if self.ulog.start_timestamp is not None:
+            start_time = self.ulog.start_timestamp / 1_000_000.0
+
+        if self.ulog.last_timestamp is not None:
+            end_time = self.ulog.last_timestamp / 1_000_000.0
+
+        if (
+            self.ulog.start_timestamp is not None
+            and self.ulog.last_timestamp is not None
+        ):
+            duration = (
+                self.ulog.last_timestamp
+                - self.ulog.start_timestamp
+            ) / 1_000_000.0
+
+        metadata = dict(self.ulog.msg_info_dict)
+
+        return EvidenceMetadata(
+            source_file=str(self.evidence_path),
+            platform=self.platform_name,
+            format="ULog",
+            firmware=metadata.get("ver_sw"),
+            firmware_version=metadata.get("ver_sw"),
+            vehicle_type=metadata.get("sys_name"),
+            start_time=start_time,
+            end_time=end_time,
+            duration=duration,
+            metadata=metadata,
+        )
+
+    # ---------------------------------------------------------
+    # GPS
+    # ---------------------------------------------------------
+
+    def extract_gps(self):
+        """
+        Extract vehicle_gps_position into normalized GPSRecord objects.
+        """
+
+        dataset = self._dataset("vehicle_gps_position")
+
+        if dataset is None:
+            return []
+
+        data = dataset.data
+
+        timestamps = data.get("timestamp", [])
+
+        records = []
+
+        for i in range(len(timestamps)):
+
+            timestamp = self._value(
+                data,
+                "timestamp",
+                i,
+            )
+
+            if timestamp is None:
+                continue
+
+            records.append(
+                GPSRecord(
+                    timestamp=timestamp / 1_000_000.0,
+
+                    latitude=self._value(
+                        data,
+                        "latitude_deg",
+                        i,
+                    ),
+
+                    longitude=self._value(
+                        data,
+                        "longitude_deg",
+                        i,
+                    ),
+
+                    altitude_m=self._value(
+                        data,
+                        "altitude_msl_m",
+                        i,
+                    ),
+
+                    speed_m_s=self._value(
+                        data,
+                        "vel_m_s",
+                        i,
+                    ),
+
+                    fix_type=self._value(
+                        data,
+                        "fix_type",
+                        i,
+                    ),
+
+                    satellites=self._value(
+                        data,
+                        "satellites_used",
+                        i,
+                    ),
+
+                    hdop=self._value(
+                        data,
+                        "hdop",
+                        i,
+                    ),
+
+                    vdop=self._value(
+                        data,
+                        "vdop",
+                        i,
+                    ),
+
+                    heading_deg=self._value(
+                        data,
+                        "heading",
+                        i,
+                    ),
+
+                    jamming_state=self._value(
+                        data,
+                        "jamming_state",
+                        i,
+                    ),
+
+                    spoofing_state=self._value(
+                        data,
+                        "spoofing_state",
+                        i,
+                    ),
+
+                    source_platform=self.platform_name,
+                )
+            )
+
+        return records
+
+    # ---------------------------------------------------------
+    # COMMANDS
+    # ---------------------------------------------------------
+
+    def extract_commands(self):
+        """
+        Extract vehicle_command records.
+        """
+
+        dataset = self._dataset("vehicle_command")
+
+        if dataset is None:
+            return []
+
+        data = dataset.data
+
+        timestamps = data.get("timestamp", [])
+
+        records = []
+
+        parameter_fields = [
+            "param1",
+            "param2",
+            "param3",
+            "param4",
+            "param5",
+            "param6",
+            "param7",
+        ]
+
+        for i in range(len(timestamps)):
+
+            timestamp = self._value(
+                data,
+                "timestamp",
+                i,
+            )
+
+            if timestamp is None:
+                continue
+
+            parameters = {}
+
+            for field in parameter_fields:
+                parameters[field] = self._value(
+                    data,
+                    field,
+                    i,
+                )
+
+            records.append(
+                CommandRecord(
+                    timestamp=timestamp / 1_000_000.0,
+
+                    command_id=self._value(
+                        data,
+                        "command",
+                        i,
+                    ),
+
+                    source_system=self._value(
+                        data,
+                        "source_system",
+                        i,
+                    ),
+
+                    source_component=self._value(
+                        data,
+                        "source_component",
+                        i,
+                    ),
+
+                    target_system=self._value(
+                        data,
+                        "target_system",
+                        i,
+                    ),
+
+                    target_component=self._value(
+                        data,
+                        "target_component",
+                        i,
+                    ),
+
+                    parameters=parameters,
+
+                    source_platform=self.platform_name,
+                )
+            )
+
+        return records
+
+    # ---------------------------------------------------------
+    # COMMAND ACKS
+    # ---------------------------------------------------------
+
+    def extract_command_acks(self):
+        """
+        Extract vehicle_command_ack records.
+        """
+
+        dataset = self._dataset("vehicle_command_ack")
+
+        if dataset is None:
+            return []
+
+        data = dataset.data
+
+        timestamps = data.get("timestamp", [])
+
+        records = []
+
+        for i in range(len(timestamps)):
+
+            timestamp = self._value(
+                data,
+                "timestamp",
+                i,
+            )
+
+            if timestamp is None:
+                continue
+
+            records.append(
+                CommandAckRecord(
+                    timestamp=timestamp / 1_000_000.0,
+
+                    command_id=self._value(
+                        data,
+                        "command",
+                        i,
+                    ),
+
+                    result=self._value(
+                        data,
+                        "result",
+                        i,
+                    ),
+
+                    target_system=self._value(
+                        data,
+                        "target_system",
+                        i,
+                    ),
+
+                    target_component=self._value(
+                        data,
+                        "target_component",
+                        i,
+                    ),
+
+                    source_platform=self.platform_name,
+                )
+            )
+
+        return records
+
+    # ---------------------------------------------------------
+    # VEHICLE STATES
+    # ---------------------------------------------------------
+
+    def extract_states(self):
+        """
+        Extract vehicle_status into normalized StateRecord objects.
+        """
+
+        dataset = self._dataset("vehicle_status")
+
+        if dataset is None:
+            return []
+
+        data = dataset.data
+
+        timestamps = data.get("timestamp", [])
+
+        records = []
+
+        for i in range(len(timestamps)):
+
+            timestamp = self._value(
+                data,
+                "timestamp",
+                i,
+            )
+
+            if timestamp is None:
+                continue
+
+            arming_state = self._value(
+                data,
+                "arming_state",
+                i,
+            )
+
+            nav_state = self._value(
+                data,
+                "nav_state",
+                i,
+            )
+
+            failsafe = self._value(
+                data,
+                "failsafe",
+                i,
+            )
+
+            gcs_lost = self._value(
+                data,
+                "gcs_connection_lost",
+                i,
+            )
+
+            preflight = self._value(
+                data,
+                "pre_flight_checks_pass",
+                i,
+            )
+
+            records.append(
+                StateRecord(
+                    timestamp=timestamp / 1_000_000.0,
+
+                    armed=(
+                        arming_state == 2
+                        if arming_state is not None
+                        else None
+                    ),
+
+                    flight_mode=(
+                        str(nav_state)
+                        if nav_state is not None
+                        else None
+                    ),
+
+                    failsafe=(
+                        bool(failsafe)
+                        if failsafe is not None
+                        else None
+                    ),
+
+                    gcs_connection_lost=(
+                        bool(gcs_lost)
+                        if gcs_lost is not None
+                        else None
+                    ),
+
+                    preflight_checks_pass=(
+                        bool(preflight)
+                        if preflight is not None
+                        else None
+                    ),
+
+                    source_platform=self.platform_name,
+                )
+            )
+
+        return records
+
+    # ---------------------------------------------------------
+    # PARAMETERS
+    # ---------------------------------------------------------
+
+    def extract_parameters(self):
+        """
+        Parameter extraction will be implemented after the
+        core multi-platform architecture is validated.
+        """
+
+        return []
+
+    # ---------------------------------------------------------
+    # EVENTS
+    # ---------------------------------------------------------
+
+    def extract_events(self):
+        """
+        Platform-specific event extraction will be implemented
+        after the core parser architecture is validated.
+        """
+
+        return []

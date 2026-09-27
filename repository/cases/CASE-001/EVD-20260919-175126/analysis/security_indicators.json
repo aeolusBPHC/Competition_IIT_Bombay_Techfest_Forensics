@@ -1,0 +1,168 @@
+{
+    "case_id": "CASE-001",
+    "evidence_id": "EVD-20260919-175126",
+    "source": "repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg",
+    "indicator_count": 12,
+    "severity_counts": {
+        "INFO": 8,
+        "MEDIUM": 2,
+        "LOW": 2
+    },
+    "category_counts": {
+        "NAVIGATION": 2,
+        "COMMAND_AND_CONTROL": 8,
+        "FLIGHT_CONTROL": 1,
+        "EVIDENCE_QUALITY": 1
+    },
+    "indicators": [
+        {
+            "category": "NAVIGATION",
+            "indicator_type": "GPS_SPOOFING_STATE_NOT_ASSERTED",
+            "severity": "INFO",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "No analyzed GPS sample asserted a non-zero PX4 spoofing state.",
+            "evidence": {
+                "gps_samples": 70755,
+                "observed_spoofing_states": [
+                    0
+                ]
+            }
+        },
+        {
+            "category": "NAVIGATION",
+            "indicator_type": "GPS_JAMMING_STATE_NOT_ASSERTED",
+            "severity": "INFO",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "No analyzed GPS sample asserted a non-zero PX4 jamming state or indicator.",
+            "evidence": {
+                "gps_samples": 70755
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "GCS_CONNECTION_RESTORED",
+            "severity": "INFO",
+            "timestamp_seconds": 76.632,
+            "confidence": "OBSERVED",
+            "description": "PX4 recorded restoration of the GCS connection state.",
+            "evidence": {
+                "previous_state": 1,
+                "new_state": 0
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "GCS_CONNECTION_LOST",
+            "severity": "MEDIUM",
+            "timestamp_seconds": 943.716,
+            "confidence": "OBSERVED",
+            "description": "PX4 recorded a transition to GCS connection lost.",
+            "evidence": {
+                "previous_state": 0,
+                "new_state": 1
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "GCS_CONNECTION_RESTORED",
+            "severity": "INFO",
+            "timestamp_seconds": 944.22,
+            "confidence": "OBSERVED",
+            "description": "PX4 recorded restoration of the GCS connection state.",
+            "evidence": {
+                "previous_state": 1,
+                "new_state": 0
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "GCS_CONNECTION_LOST",
+            "severity": "MEDIUM",
+            "timestamp_seconds": 1193.196,
+            "confidence": "OBSERVED",
+            "description": "PX4 recorded a transition to GCS connection lost.",
+            "evidence": {
+                "previous_state": 0,
+                "new_state": 1
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "GCS_CONNECTION_RESTORED",
+            "severity": "INFO",
+            "timestamp_seconds": 1194.172,
+            "confidence": "OBSERVED",
+            "description": "PX4 recorded restoration of the GCS connection state.",
+            "evidence": {
+                "previous_state": 1,
+                "new_state": 0
+            }
+        },
+        {
+            "category": "FLIGHT_CONTROL",
+            "indicator_type": "NO_NONZERO_FAILSAFE_STATE_OBSERVED",
+            "severity": "INFO",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "No non-zero failsafe state was observed in the analyzed vehicle status samples.",
+            "evidence": {
+                "observed_failsafe_states": [
+                    0
+                ]
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "EXTERNAL_COMMANDS_OBSERVED",
+            "severity": "INFO",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "Vehicle command records marked from_external were observed.",
+            "evidence": {
+                "count": 17,
+                "command_ids": [
+                    521
+                ]
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "ACK_COMMAND_ID_WITHOUT_COMMAND",
+            "severity": "LOW",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "ACK command IDs were observed for which no vehicle_command record with the same command ID exists in the analyzed ULog.",
+            "evidence": {
+                "ack_command_ids": [
+                    512
+                ]
+            }
+        },
+        {
+            "category": "COMMAND_AND_CONTROL",
+            "indicator_type": "COMMAND_ID_WITHOUT_ACK",
+            "severity": "LOW",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "Vehicle command IDs were observed for which no vehicle_command_ack record with the same command ID exists in the analyzed ULog.",
+            "evidence": {
+                "command_ids": [
+                    521
+                ]
+            }
+        },
+        {
+            "category": "EVIDENCE_QUALITY",
+            "indicator_type": "NO_LOG_DROPOUTS_REPORTED",
+            "severity": "INFO",
+            "timestamp_seconds": null,
+            "confidence": "OBSERVED",
+            "description": "The ULog reports no logging dropouts.",
+            "evidence": {
+                "dropout_count": 0
+            }
+        }
+    ]
+}

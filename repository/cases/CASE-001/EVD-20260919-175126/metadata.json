@@ -1,0 +1,14 @@
+{
+    "case_id": "CASE-001",
+    "evidence_id": "EVD-20260919-175126",
+    "source": "/home/srujan-mishrikotkar/PX4-Autopilot/build/px4_sitl_default/rootfs/5/log/2026-07-23/17_02_27.ulg",
+    "acquired_file": "/home/srujan-mishrikotkar/drone_forensics/repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg",
+    "filename": "17_02_27.ulg",
+    "file_size_bytes": 586194944,
+    "hash_algorithm": "SHA-256",
+    "original_hash": "ec47d7c7d6ef9843364714aed421b6e9715c59d529c43761aac274947902d875",
+    "forensic_copy_hash": "ec47d7c7d6ef9843364714aed421b6e9715c59d529c43761aac274947902d875",
+    "integrity_verified": true,
+    "acquisition_timestamp_utc": "2026-09-19T17:51:26.759714+00:00",
+    "operator": "drone_forensics"
+}

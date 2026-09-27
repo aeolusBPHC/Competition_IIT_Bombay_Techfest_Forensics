@@ -1,0 +1,216 @@
+from pathlib import Path
+import struct
+
+from platform_parsers.common.base_parser import BaseForensicParser
+from platform_parsers.common.evidence_model import EvidenceMetadata
+
+
+class MAVLinkTLogParser(BaseForensicParser):
+    """
+    Generic MAVLink TLOG foundation parser.
+
+    Current scope:
+    - TLOG structural detection
+    - MAVLink version detection
+    - basic message-type detection
+    - common parser interface
+
+    Platform-specific interpretation is intentionally deferred.
+    """
+
+    platform_name = "MAVLink"
+
+    supported_formats = [
+        "TLOG",
+        ".tlog",
+    ]
+
+    TIMESTAMP_SIZE = 8
+
+    @classmethod
+    def identify(cls, evidence_path):
+        path = Path(evidence_path)
+
+        if not path.exists():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "File does not exist",
+            }
+
+        if not path.is_file():
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "NONE",
+                "reason": "Evidence path is not a file",
+            }
+
+        try:
+            result = cls._inspect_tlog(path)
+
+            if not result["valid"]:
+                return {
+                    "supported": False,
+                    "platform": cls.platform_name,
+                    "format": None,
+                    "confidence": "NONE",
+                    "reason": result["reason"],
+                }
+
+            return {
+                "supported": True,
+                "platform": cls.platform_name,
+                "format": "TLOG",
+                "confidence": "LOW",
+                "reason": (
+                    "Generic MAVLink TLOG structure detected; "
+                    "flight-controller platform not yet resolved"
+                ),
+                "indicators": result["indicators"],
+            }
+
+        except Exception as exc:
+            return {
+                "supported": False,
+                "platform": cls.platform_name,
+                "format": None,
+                "confidence": "ERROR",
+                "reason": f"MAVLink TLOG validation failed: {exc}",
+            }
+
+    @classmethod
+    def _inspect_tlog(cls, path):
+        max_scan = 1024 * 1024
+
+        with path.open("rb") as file:
+            data = file.read(max_scan)
+
+        if len(data) < cls.TIMESTAMP_SIZE + 8:
+            return {
+                "valid": False,
+                "reason": "File is too small to contain a TLOG record",
+                "indicators": {},
+            }
+
+        try:
+            from pymavlink import mavutil
+        except ImportError:
+            return {
+                "valid": False,
+                "reason": "pymavlink is not installed",
+                "indicators": {},
+            }
+
+        offset = 0
+        records = 0
+        mavlink_versions = set()
+        message_types = []
+
+        while offset + cls.TIMESTAMP_SIZE < len(data):
+
+            timestamp_bytes = data[
+                offset:
+                offset + cls.TIMESTAMP_SIZE
+            ]
+
+            timestamp_us = struct.unpack(
+                ">Q",
+                timestamp_bytes
+            )[0]
+
+            if timestamp_us == 0:
+                offset += 1
+                continue
+
+            packet_start = offset + cls.TIMESTAMP_SIZE
+
+            magic_index = None
+
+            for candidate in range(
+                packet_start,
+                min(packet_start + 16, len(data))
+            ):
+                if data[candidate] in (0xFE, 0xFD):
+                    magic_index = candidate
+                    break
+
+            if magic_index is None:
+                offset += 1
+                continue
+
+            try:
+                parser = mavutil.mavlink.MAVLink(None)
+
+                message = parser.parse_char(
+                    data[magic_index:]
+                )
+
+                if message is None:
+                    offset += 1
+                    continue
+
+                records += 1
+
+                if data[magic_index] == 0xFE:
+                    mavlink_versions.add("MAVLink 1")
+
+                elif data[magic_index] == 0xFD:
+                    mavlink_versions.add("MAVLink 2")
+
+                message_types.append(
+                    message.get_type()
+                )
+
+                offset = magic_index + 2
+
+                if records >= 5:
+                    break
+
+            except Exception:
+                offset += 1
+
+        if records == 0:
+            return {
+                "valid": False,
+                "reason": "No valid MAVLink records detected",
+                "indicators": {},
+            }
+
+        return {
+            "valid": True,
+            "reason": "Valid MAVLink records detected",
+            "indicators": {
+                "records_detected": records,
+                "mavlink_versions": sorted(mavlink_versions),
+                "message_types": message_types,
+            },
+        }
+
+    def get_metadata(self):
+        return EvidenceMetadata(
+            source_file=str(self.evidence_path),
+            platform=self.platform_name,
+            format="TLOG",
+        )
+
+    def extract_gps(self):
+        return []
+
+    def extract_commands(self):
+        return []
+
+    def extract_command_acks(self):
+        return []
+
+    def extract_states(self):
+        return []
+
+    def extract_parameters(self):
+        return []
+
+    def extract_events(self):
+        return []

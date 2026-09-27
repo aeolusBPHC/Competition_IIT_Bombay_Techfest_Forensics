@@ -1,0 +1,173 @@
+from types import SimpleNamespace
+import pytest
+
+from analysis.normalized_security_indicators import (
+    NormalizedSecurityIndicatorEngine,
+)
+
+
+def make_command(
+    timestamp,
+    command_id,
+):
+    return SimpleNamespace(
+        timestamp=timestamp,
+        command_id=command_id,
+        source_system=255,
+        source_component=190,
+        target_system=6,
+        target_component=1,
+        parameters={},
+    )
+
+
+def make_ack(
+    timestamp,
+    command_id,
+    result=0,
+):
+    return SimpleNamespace(
+        timestamp=timestamp,
+        command_id=command_id,
+        result=result,
+    )
+
+
+def make_engine(commands, acknowledgements):
+    evidence = SimpleNamespace(
+        commands=commands,
+        command_acks=acknowledgements,
+    )
+
+    return NormalizedSecurityIndicatorEngine(evidence)
+
+
+def indicator_types(result):
+    return [
+        indicator["indicator_type"]
+        for indicator in result
+    ]
+
+
+def test_exact_command_ack_is_correlated():
+    command = make_command(10.0, 521)
+    ack = make_ack(10.03, 521, result=0)
+
+    engine = make_engine([command], [ack])
+
+    indicators = engine.command_indicators()
+
+    types = indicator_types(indicators)
+
+    assert "COMMAND_WITHOUT_EXACT_ACK" not in types
+    assert "ACK_WITHOUT_COMMAND" not in types
+    assert "COMMAND_ACK_ID_MISMATCH" not in types
+
+
+def test_different_nearby_ack_is_not_treated_as_id_mismatch():
+    command = make_command(10.0, 521)
+    ack = make_ack(9.996, 512, result=2)
+
+    engine = make_engine([command], [ack])
+
+    indicators = engine.command_indicators()
+
+    types = indicator_types(indicators)
+
+    assert "COMMAND_ACK_ID_MISMATCH" not in types
+    assert "COMMAND_WITHOUT_EXACT_ACK" in types
+
+    unmatched = [
+        indicator
+        for indicator in indicators
+        if indicator["indicator_type"] == "COMMAND_WITHOUT_EXACT_ACK"
+    ]
+
+    assert len(unmatched) == 1
+
+    indicator = unmatched[0]
+
+    assert indicator["evidence"]["command_id"] == 521
+    assert indicator["evidence"]["nearest_ack_command_id"] == 512
+    assert indicator["evidence"]["nearest_ack_result"] == 2
+
+    # ACK happened 4 ms before the command.
+    assert (
+        indicator["evidence"]["nearest_ack_delta_seconds"]
+        == pytest.approx(-0.004)
+    )
+
+    assert (
+        indicator["evidence"]["correlation"]
+        ["acknowledgement_identifier_match"]
+        is False
+    )
+
+
+def test_ack_without_nearby_command():
+    ack = make_ack(50.0, 512, result=2)
+
+    engine = make_engine([], [ack])
+
+    indicators = engine.command_indicators()
+
+    types = indicator_types(indicators)
+
+    assert types == ["ACK_WITHOUT_COMMAND"]
+
+    assert indicators[0]["evidence"]["command_id"] == 512
+    assert indicators[0]["evidence"]["command_id_present_in_evidence"] is False
+
+
+def test_command_without_ack_and_far_away_different_ack():
+    command = make_command(10.0, 521)
+    far_ack = make_ack(100.0, 512, result=2)
+
+    engine = make_engine([command], [far_ack])
+
+    indicators = engine.command_indicators()
+
+    types = indicator_types(indicators)
+
+    assert "COMMAND_WITHOUT_EXACT_ACK" in types
+    assert "ACK_WITHOUT_COMMAND" in types
+    assert "COMMAND_ACK_ID_MISMATCH" not in types
+
+
+def test_repeated_command_detection_is_preserved():
+    commands = [
+        make_command(10.0, 521),
+        make_command(20.0, 521),
+        make_command(30.0, 521),
+    ]
+
+    engine = make_engine(commands, [])
+
+    indicators = engine.command_indicators()
+
+    repeated = [
+        indicator
+        for indicator in indicators
+        if indicator["indicator_type"] == "REPEATED_COMMAND_ID"
+    ]
+
+    assert len(repeated) == 1
+
+    assert repeated[0]["evidence"]["command_id"] == 521
+    assert repeated[0]["evidence"]["count"] == 3
+    assert repeated[0]["timestamp_seconds"] == 10.0
+    assert repeated[0]["end_timestamp_seconds"] == 30.0
+
+
+def test_mismatched_ack_is_not_also_reported_as_unmatched_ack():
+    command = make_command(10.0, 521)
+    ack = make_ack(9.996, 512, result=2)
+
+    engine = make_engine([command], [ack])
+
+    indicators = engine.command_indicators()
+
+    types = indicator_types(indicators)
+
+    assert "COMMAND_WITHOUT_EXACT_ACK" in types
+    assert "ACK_WITHOUT_COMMAND" not in types

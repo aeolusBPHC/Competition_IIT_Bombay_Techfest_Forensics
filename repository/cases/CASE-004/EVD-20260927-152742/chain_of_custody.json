@@ -1,0 +1,37 @@
+[
+    {
+        "event_id": 1,
+        "event": "EVIDENCE_ACQUIRED",
+        "timestamp_utc": "2026-09-27T15:27:42.309018+00:00",
+        "operator": "drone_forensics",
+        "evidence_id": "EVD-20260927-152742",
+        "description": "Digital evidence acquired."
+    },
+    {
+        "event_id": 2,
+        "event": "HASH_CALCULATED",
+        "timestamp_utc": "2026-09-27T15:27:42.309018+00:00",
+        "operator": "drone_forensics",
+        "evidence_id": "EVD-20260927-152742",
+        "algorithm": "SHA-256",
+        "hash": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3"
+    },
+    {
+        "event_id": 3,
+        "event": "FORENSIC_COPY_CREATED",
+        "timestamp_utc": "2026-09-27T15:27:42.309018+00:00",
+        "operator": "drone_forensics",
+        "evidence_id": "EVD-20260927-152742",
+        "copy": "/home/srujan-mishrikotkar/drone_forensics/repository/cases/CASE-004/EVD-20260927-152742/evidence/22_43_32.ulg"
+    },
+    {
+        "event_id": 4,
+        "event": "INTEGRITY_VERIFIED",
+        "timestamp_utc": "2026-09-27T15:27:42.309018+00:00",
+        "operator": "drone_forensics",
+        "evidence_id": "EVD-20260927-152742",
+        "original_hash": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3",
+        "copy_hash": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3",
+        "verified": true
+    }
+]
