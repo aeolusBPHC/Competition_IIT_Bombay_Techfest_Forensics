@@ -842,39 +842,6 @@ This allows experiments to be reproduced without coupling the analytical layer t
 
 ---
 
-# Repository Safety
-
-Real forensic evidence should generally not be committed directly to a public Git repository.
-
-The repository should contain:
-
-```text
-Source code
-Configuration
-Documentation
-Tests
-Synthetic datasets
-Small verified fixtures
-Evidence metadata
-Hashes
-Reproducibility information
-```
-
-Avoid committing:
-
-```text
-.venv/
-__pycache__/
-*.pyc
-large raw ULog files
-private flight logs
-private images/videos
-credentials
-API keys
-generated model checkpoints
-large temporary files
-```
-
 ---
 
 # Development Status
