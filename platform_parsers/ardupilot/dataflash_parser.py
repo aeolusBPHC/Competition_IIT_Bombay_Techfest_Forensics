@@ -16,7 +16,10 @@ from platform_parsers.common.evidence_model import (
 )
 
 
-class ArduPilotDataFlashParser(BaseForensicParser):
+from platform_parsers.ardupilot.dataflash_extensions import DataFlashEvidenceMixin
+
+
+class ArduPilotDataFlashParser(DataFlashEvidenceMixin, BaseForensicParser):
 
     platform_name = "ArduPilot"
     supported_formats = ["DataFlash", ".bin", ".log"]
@@ -53,7 +56,10 @@ class ArduPilotDataFlashParser(BaseForensicParser):
         super().__init__(evidence_path)
         self._data = None
         self._schemas = {}
-        self._records = []
+        self._records = None
+        self._schema_history = []
+        self._decode_stats = {"decoded_records": 0, "unrecognized_header_candidates": 0,
+                              "truncated_at_end": False, "errors": []}
 
     # =========================================================
     # PLATFORM IDENTIFICATION
@@ -220,6 +226,11 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                 for char in fmt
             ):
 
+                offset = header + 2
+                continue
+
+            if (msg_len != cls.HEADER_LEN + sum(cls.FORMAT_TYPES[char][1] for char in fmt)
+                    or len(labels.split(",")) != len(fmt)):
                 offset = header + 2
                 continue
 
@@ -525,10 +536,16 @@ class ArduPilotDataFlashParser(BaseForensicParser):
     # =========================================================
 
     def _iter_records(self):
+        if self._records is None:
+            self._records = list(self._decode_records())
+        return iter(self._records)
+
+    def _decode_records(self):
 
         data = self._load()
 
         offset = 0
+        active_schemas = {}
 
         while (
             offset + self.HEADER_LEN
@@ -566,16 +583,33 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                 header + 2
             ]
 
+            if msg_id == self.FMT_MESSAGE_ID:
+                end = header + self.FMT_RECORD_LEN
+                if end > len(data):
+                    self._decode_stats["truncated_at_end"] = True
+                    break
+                recovered = self._scan_fmt_records(data[header:end])
+                if not recovered and data[header + 3] != self.FMT_MESSAGE_ID:
+                    if len(self._decode_stats["errors"]) < 20:
+                        self._decode_stats["errors"].append({"file_offset": header,
+                            "message_type": data[header + 3], "reason": "Unsupported or inconsistent FMT definition"})
+                for type_id, definition in recovered.items():
+                    definition = {**definition, "offset": header}
+                    active_schemas[type_id] = definition
+                    self._schema_history.append(definition)
+                offset = end
+                continue
+
             # -------------------------------------------------
             # Find schema
             # -------------------------------------------------
 
-            schema = self._schemas.get(
+            schema = active_schemas.get(
                 msg_id
             )
 
             if schema is None:
-
+                self._decode_stats["unrecognized_header_candidates"] += 1
                 offset = header + 2
                 continue
 
@@ -602,7 +636,7 @@ class ArduPilotDataFlashParser(BaseForensicParser):
             )
 
             if end > len(data):
-
+                self._decode_stats["truncated_at_end"] = True
                 break
 
             packet = data[
@@ -703,6 +737,7 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                     "offset": header,
                 }
 
+                self._decode_stats["decoded_records"] += 1
                 yield record
 
                 # -------------------------------------------------
@@ -712,6 +747,9 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                 offset = end
 
             except Exception as exc:
+                if len(self._decode_stats["errors"]) < 20:
+                    self._decode_stats["errors"].append({"file_offset": header,
+                                                          "message_type": msg_id, "reason": str(exc)})
 
                 print(
                     "DECODE ERROR: "
@@ -1159,11 +1197,14 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                     remaining=(
                         remaining / 100.0
                         if remaining is not None
-                        and remaining > 1
-                        else remaining
+                        and 0 <= remaining <= 100
+                        else None
                     ),
 
                     temperature_c=temperature,
+
+                    state_of_health=(fields["SH"] if fields.get("SH") is not None
+                                     and 0 < fields["SH"] <= 100 else None),
 
                     source_platform=(
                         self.platform_name
@@ -1187,6 +1228,7 @@ class ArduPilotDataFlashParser(BaseForensicParser):
                 )
             )
 
+        records.extend(self.extract_cell_battery())
         return records
 
     # =========================================================
@@ -1194,42 +1236,12 @@ class ArduPilotDataFlashParser(BaseForensicParser):
     # =========================================================
 
     def extract_telemetry(self):
-        """
-        DataFlash telemetry extraction is not enabled yet.
+        return super().extract_telemetry()
 
-        The current normalized DataFlash evidence does not contain
-        a native telemetry dataset with semantics that can be mapped
-        defensibly to TelemetryRecord.
-
-        Do not synthesize telemetry records from unrelated DataFlash
-        records.
-        """
-
-        return []
-
-    # =========================================================
-    # FAILSAFE
-    # =========================================================
 
     def extract_failsafe(self):
-        """
-        DataFlash failsafe extraction is not enabled yet.
+        return super().extract_failsafe()
 
-        The current normalized DataFlash evidence does not contain
-        a dedicated native failsafe dataset.
-
-        ERR and MSG records are preserved as forensic events and
-        are not reclassified as failsafe records without explicit
-        evidence.
-
-        Do not synthesize failsafe records.
-        """
-
-        return []
-
-    # =========================================================
-    # COMMANDS
-    # =========================================================
 
     def extract_commands(self):
 
@@ -1564,45 +1576,14 @@ class ArduPilotDataFlashParser(BaseForensicParser):
             "TimeUS"
         )
 
-        if timestamp is None:
-
-            return None
-
-        return (
-            timestamp /
-            1_000_000.0
-        )
+        if timestamp is not None:
+            return timestamp / 1_000_000.0
+        timestamp = fields.get("TimeMS")
+        return timestamp / 1000.0 if timestamp is not None else None
 
     # =========================================================
     # PARSE
     # =========================================================
 
     def parse(self):
-
-        self._load()
-
-        metadata = self.get_metadata()
-
-        return NormalizedEvidence(
-            metadata=metadata,
-
-            gps=self.extract_gps(),
-
-            navigation=self.extract_navigation(),
-
-            battery=self.extract_battery(),
-
-            telemetry=self.extract_telemetry(),
-
-            failsafe=self.extract_failsafe(),
-
-            commands=self.extract_commands(),
-
-            command_acks=self.extract_command_acks(),
-
-            states=self.extract_states(),
-
-            parameters=self.extract_parameters(),
-
-            events=self.extract_events(),
-        )
+        return super().parse()
