@@ -80,6 +80,10 @@ class TrajectoryRecord:
 
     None means the platform/log did not provide a defensible value.
     Validity flags must not be inferred from the numeric value alone.
+
+    Coordinates are local ENU: x east, y north, z up, in metres.
+    Velocity and acceleration use the same axes. Adapters retain native
+    values in raw when converting from another frame.
     """
 
     timestamp: float
@@ -114,6 +118,8 @@ class TrajectoryRecord:
     vertical_reset_counter: int | None = None
     velocity_reset_counter: int | None = None
     vertical_velocity_reset_counter: int | None = None
+
+    coordinate_frame: str = "ENU"
 
     source_platform: str | None = None
 
@@ -158,6 +164,18 @@ class BatteryRecord:
 @dataclass
 class TelemetryRecord:
     timestamp: float
+
+    # Radio counters and buffer occupancy are distinct measurements.
+    rssi_raw: int | None = None
+    remote_rssi_raw: int | None = None
+    noise_raw: int | None = None
+    remote_noise_raw: int | None = None
+    tx_buffer_percent: float | None = None
+    rx_error_count: int | None = None
+    corrected_packet_count: int | None = None
+    communication_error_count: int | None = None
+    rc_signal_strength_raw: int | None = None
+    rc_link_quality_percent: float | None = None
 
     data_rate: float | None = None
     rate_multiplier: float | None = None
@@ -205,6 +223,10 @@ class TelemetryRecord:
 @dataclass
 class FailsafeRecord:
     timestamp: float
+
+    failsafe_active: bool | None = None
+    failsafe_phase: int | None = None
+    reason: str | None = None
 
     angular_velocity_invalid: bool | None = None
     attitude_invalid: bool | None = None
