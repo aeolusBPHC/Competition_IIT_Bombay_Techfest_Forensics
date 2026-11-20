@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from platform_parsers.common.extraction import CATEGORIES, json_value
 
 from platform_parsers.common.evidence_model import NormalizedEvidence
 from analysis.normalized_analysis import NormalizedForensicAnalyzer
@@ -259,29 +260,10 @@ class NormalizedForensicReport:
             # RECORD COUNTS
             # --------------------------------------------------------
 
-            "record_counts": {
-                "gps": len(self.evidence.gps),
+            "record_counts": {name: len(getattr(self.evidence, name)) for name in CATEGORIES},
+            "extraction_coverage": self.evidence.additional_data.get("extraction_coverage", {}),
+            "additional_data": json_value(self.evidence.additional_data),
 
-                "commands": len(
-                    self.evidence.commands
-                ),
-
-                "command_acks": len(
-                    self.evidence.command_acks
-                ),
-
-                "states": len(
-                    self.evidence.states
-                ),
-
-                "parameters": len(
-                    self.evidence.parameters
-                ),
-
-                "events": len(
-                    self.evidence.events
-                ),
-            },
 
             # --------------------------------------------------------
             # ANALYSIS
@@ -320,125 +302,8 @@ class NormalizedForensicReport:
                 ),
 
                 "normalized_records": {
-                    "gps": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.gps
-                    ],
-
-                    "navigation": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.navigation
-                    ],
-
-                    "battery": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.battery
-                    ],
-
-                    "telemetry": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.telemetry
-                    ],
-
-                    "failsafe": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.failsafe
-                    ],
-
-                    "commands": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.commands
-                    ],
-
-                    "command_acks": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.command_acks
-                    ],
-
-                    "states": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.states
-                    ],
-
-                    "parameters": [
-                        {
-                            "timestamp": record.timestamp,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.parameters
-                    ],
-
-                    "events": [
-                        {
-                            "timestamp": record.timestamp,
-                            "event_type": (
-                                record.event_type
-                            ),
-                            "description": (
-                                record.description
-                            ),
-                            "severity": (
-                                record.severity
-                            ),
-                            "data": record.data,
-                            "source_platform": (
-                                record.source_platform
-                            ),
-                            "raw": record.raw,
-                        }
-                        for record in self.evidence.events
-                    ],
+                    name: [json_value(record) for record in getattr(self.evidence, name)]
+                    for name in CATEGORIES
                 },
             },
         }
@@ -451,6 +316,7 @@ class NormalizedForensicReport:
         self,
         output_path,
         write_hash=True,
+        report_data=None,
     ) -> Path:
         """
         Build and save the report as JSON.
@@ -468,18 +334,19 @@ class NormalizedForensicReport:
             exist_ok=True,
         )
 
-        report = self.build()
+        report = report_data if report_data is not None else self.build()
 
         with output_path.open(
             "w",
             encoding="utf-8",
         ) as file:
             json.dump(
-                report,
+                json_value(report),
                 file,
                 indent=2,
                 ensure_ascii=False,
                 default=str,
+                allow_nan=False,
             )
 
             file.write("\n")
