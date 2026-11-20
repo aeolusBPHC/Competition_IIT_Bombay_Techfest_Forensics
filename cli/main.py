@@ -362,6 +362,9 @@ def command_normalized_analysis(args):
         f"{report_data['record_counts']['events']}"
     )
 
+    for category in ("navigation", "trajectory", "battery", "telemetry", "failsafe"):
+        print(f"[OK] {category.capitalize():18s}: {report_data['record_counts'][category]}")
+
     # --------------------------------------------------------
     # SECURITY ANALYSIS SUMMARY
     # --------------------------------------------------------
@@ -406,7 +409,7 @@ def command_normalized_analysis(args):
         exist_ok=True,
     )
 
-    saved_path = report.save(output)
+    saved_path = report.save(output, report_data=report_data)
 
     print(
         f"[OK] Report saved: "
@@ -567,6 +570,11 @@ def command_process(args):
 # ARGUMENT PARSER
 # ============================================================
 
+def command_trajectory_predict(args):
+    from ml.trajectory_inference import run
+    return run(args)
+
+
 def build_parser():
 
     parser = argparse.ArgumentParser(
@@ -577,6 +585,18 @@ def build_parser():
         dest="command",
         required=True
     )
+
+    # Keep PyTorch optional for the rest of the forensic CLI.
+    forecast = subparsers.add_parser("trajectory-predict", help="Forecast with a saved trajectory checkpoint")
+    forecast.add_argument("--input", required=True)
+    forecast.add_argument("--checkpoint", required=True)
+    forecast.add_argument("--output", required=True)
+    forecast.add_argument("--report")
+    forecast.add_argument("--case-id")
+    forecast.add_argument("--at-time", type=float)
+    forecast.add_argument("--predictor", choices=("selected", "gru", "constant_velocity", "constant_acceleration"), default="selected")
+    forecast.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    forecast.set_defaults(func=command_trajectory_predict)
 
     # --------------------------------------------------------
     # ACQUIRE
