@@ -661,17 +661,19 @@ class PX4ULogParser(BaseForensicParser):
                 TrajectoryRecord(
                     timestamp=timestamp,
 
-                    x_m=x,
-                    y_m=y,
-                    z_m=z,
+                    # PX4 vehicle_local_position uses NED. The normalized
+                    # contract uses ENU; raw above preserves the evidence.
+                    x_m=y,
+                    y_m=x,
+                    z_m=-z if z is not None else None,
 
-                    vx_m_s=vx,
-                    vy_m_s=vy,
-                    vz_m_s=vz,
+                    vx_m_s=vy,
+                    vy_m_s=vx,
+                    vz_m_s=-vz if vz is not None else None,
 
-                    ax_m_s2=ax,
-                    ay_m_s2=ay,
-                    az_m_s2=az,
+                    ax_m_s2=ay,
+                    ay_m_s2=ax,
+                    az_m_s2=-az if az is not None else None,
 
                     position_valid=position_valid,
                     horizontal_position_valid=bool(
@@ -1718,6 +1720,18 @@ class PX4ULogParser(BaseForensicParser):
             )
 
         return records
+
+    def extract_additional_data(self):
+        return {
+            "message_inventory": {
+                f"{dataset.name}[{self._dataset_instance(dataset)}]": {
+                    "record_count": len(next(iter(dataset.data.values()), [])),
+                    "fields": sorted(dataset.data),
+                }
+                for dataset in self.ulog.data_list
+            },
+            "platform_metadata": self.extract_platform_metadata(),
+        }
 
     def extract_platform_metadata(self) -> dict[str, Any]:
      return {
