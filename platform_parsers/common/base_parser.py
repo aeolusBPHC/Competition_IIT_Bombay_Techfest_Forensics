@@ -124,6 +124,10 @@ class BaseForensicParser(ABC):
     # COMPLETE PARSE
     # ---------------------------------------------------------
 
+    def extract_additional_data(self):
+        """Source inventory, decoding diagnostics, and unmapped observations."""
+        return {}
+
     def parse(self):
         """
         Run the complete parsing pipeline.
@@ -133,7 +137,7 @@ class BaseForensicParser(ABC):
         by the platform parser.
         """
 
-        return NormalizedEvidence(
+        evidence = NormalizedEvidence(
             metadata=self.get_metadata(),
 
             gps=self.extract_gps(),
@@ -157,4 +161,8 @@ class BaseForensicParser(ABC):
             parameters=self.extract_parameters(),
 
             events=self.extract_events(),
+            additional_data=self.extract_additional_data(),
         )
+        from .extraction import coverage
+        evidence.additional_data["extraction_coverage"] = coverage(evidence, self)
+        return evidence
