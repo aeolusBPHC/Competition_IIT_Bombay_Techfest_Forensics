@@ -69,9 +69,20 @@ def test_failsafe_matches_explicit_failsafe_messages():
 
     assert result[0].critical_failure is True
     assert result[1].gcs_connection_lost is True
-    assert result[2].gcs_connection_lost is True
+    assert result[2].manual_control_signal_lost is True
+    assert result[2].gcs_connection_lost is None
     assert result[3].geofence_breached is True
     assert result[4].battery_warning == 1
     assert result[5].motor_failure is True
     assert result[6].esc_arming_failure is True
     assert result[7].navigator_failure is True
+
+
+def test_radio_recovery_and_negated_messages_are_not_gcs_failures():
+    result = extract_failsafe([
+        make_record("Radio failsafe"),
+        make_record("Radio failsafe cleared"),
+        make_record("No GCS failsafe"),
+    ], "ArduPilot")
+    assert [record.manual_control_signal_lost for record in result] == [True, False]
+    assert all(record.gcs_connection_lost is None for record in result)
