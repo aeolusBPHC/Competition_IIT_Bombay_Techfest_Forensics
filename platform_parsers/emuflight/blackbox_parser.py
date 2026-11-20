@@ -93,7 +93,10 @@ def _scaled(value: Any, scale: float | None) -> float | None:
     return value * scale
 
 
-class EmuFlightBlackboxParser(BaseForensicParser):
+from platform_parsers.common.blackbox_evidence import BlackboxEvidenceMixin
+
+
+class EmuFlightBlackboxParser(BlackboxEvidenceMixin, BaseForensicParser):
     platform_name = PLATFORM
     format_name = FORMAT
     supported_formats = {FORMAT}
@@ -263,10 +266,12 @@ class EmuFlightBlackboxParser(BaseForensicParser):
         return records
 
     # ============================================================ navigation
-    def extract_navigation(self) -> list:
-        # Blackbox logs no fused position estimate, so there is nothing
-        # to map. Returning [] (not synthesized values) is deliberate.
-        return []
+    def extract_navigation(self) -> list[em.NavigationRecord]:
+        return [em.NavigationRecord(timestamp=record.timestamp, latitude=record.latitude,
+                                    longitude=record.longitude, altitude_m=record.altitude_m,
+                                    source_platform=self.platform_name,
+                                    raw={**record.raw, "position_source": "gps_observation"})
+                for record in self.extract_gps()]
 
     # ================================================================ battery
     def extract_battery(self) -> list[em.BatteryRecord]:
@@ -277,6 +282,8 @@ class EmuFlightBlackboxParser(BaseForensicParser):
         for log in self._load():
             for frame in log.main_frames:
                 if "vbatLatest" not in frame and "amperageLatest" not in frame:
+                    continue
+                if self._blackbox_time(frame) is None:
                     continue
                 records.append(em.BatteryRecord(
                     timestamp=self._time_s(frame.get("time")),
@@ -361,6 +368,8 @@ class EmuFlightBlackboxParser(BaseForensicParser):
                 rx = frame.get("rxSignalReceived")
                 records.append(em.FailsafeRecord(
                     timestamp=self._time_s(time_us),
+                    failsafe_phase=frame.get("failsafePhase"),
+                    failsafe_active=bool(frame["failsafePhase"]) if "failsafePhase" in frame else None,
                     manual_control_signal_lost=(rx == 0) if rx is not None else None,
                     source_platform=PLATFORM,
                     raw=self._raw(frame, log, "S"),
@@ -369,7 +378,7 @@ class EmuFlightBlackboxParser(BaseForensicParser):
 
     # ============================================ categories Blackbox lacks
     def extract_telemetry(self) -> list:
-        return []
+        return super().extract_telemetry()
 
     def extract_commands(self) -> list:
         return []  # Blackbox has no command/ACK protocol
@@ -422,7 +431,9 @@ class EmuFlightBlackboxParser(BaseForensicParser):
 
         for log in self._load():
             for e in log.events:
-                timestamp = self._time_s(e.get("_last_main_time"))
+                timestamp = self._blackbox_time(e)
+                if timestamp is None:
+                    continue  # Untimed decoded events remain in source_record_groups.
                 event_type = (
                     e.get("event_name")
                     or f"UNKNOWN_{e.get('event_type', 'UNKNOWN')}"
@@ -464,26 +475,5 @@ class EmuFlightBlackboxParser(BaseForensicParser):
 
     # ============================================================= normalize
     def normalize(self):
-        """
-        Build the toolkit's NormalizedEvidence object.
-
-        ALIGN WITH YOUR REPO: the handoff notes do not show the
-        NormalizedEvidence constructor or the parameter/event record
-        classes. Copy the equivalent method from the Betaflight parser and
-        keep the extract_* calls below.
-        """
-        normalized_cls = getattr(em, "NormalizedEvidence", None)
-        payload = {
-            "metadata": self.extract_metadata(),
-            "gps": self.extract_gps(),
-            "navigation": self.extract_navigation(),
-            "battery": self.extract_battery(),
-            "telemetry": self.extract_telemetry(),
-            "failsafe": self.extract_failsafe(),
-            "commands": self.extract_commands(),
-            "command_acks": self.extract_command_acks(),
-            "states": self.extract_states(),
-            "parameters": self.extract_parameters(),
-            "events": self.extract_events(),
-        }
-        return normalized_cls(**payload) if normalized_cls else payload
+        """Backward-compatible alias using the complete shared pipeline."""
+        return self.parse()
