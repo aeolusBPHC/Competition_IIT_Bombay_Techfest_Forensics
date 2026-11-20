@@ -406,33 +406,18 @@ def extract_telemetry(records: Iterable, source_platform: str):
         raw = _message_dict(message)
 
         if message_type == "RADIO_STATUS":
-
-            telemetry.append(
-                TelemetryRecord(
-                    timestamp=record["timestamp"],
-                    rx_message_lost_count=getattr(
-                        message,
-                        "rxerrors",
-                        None,
-                    ),
-                    tx_buffer_overruns=getattr(
-                        message,
-                        "txbuf",
-                        None,
-                    ),
-                    source_platform=source_platform,
-                    raw={
-                        "mavpackettype": message_type,
-                        "mavlink_version": record[
-                            "mavlink_version"
-                        ],
-                        "timestamp_us": record[
-                            "timestamp_us"
-                        ],
-                        "message": raw,
-                    },
-                )
-            )
+            telemetry.append(TelemetryRecord(
+                timestamp=record["timestamp"],
+                rssi_raw=getattr(message, "rssi", None), remote_rssi_raw=getattr(message, "remrssi", None),
+                noise_raw=getattr(message, "noise", None), remote_noise_raw=getattr(message, "remnoise", None),
+                tx_buffer_percent=getattr(message, "txbuf", None),
+                rx_error_count=getattr(message, "rxerrors", None),
+                corrected_packet_count=getattr(message, "fixed", None),
+                source_platform=source_platform,
+                raw={"mavpackettype": message_type, "packet_offset": record.get("packet_offset"),
+                     "mavlink_version": record.get("mavlink_version"),
+                     "timestamp_us": record.get("timestamp_us"), "message": raw},
+            ))
 
         elif message_type == "SYS_STATUS":
 
@@ -443,13 +428,13 @@ def extract_telemetry(records: Iterable, source_platform: str):
             )
 
             if drop_rate is not None:
-                drop_rate = drop_rate / 100.0
+                drop_rate = drop_rate / 10000.0
 
             telemetry.append(
                 TelemetryRecord(
                     timestamp=record["timestamp"],
                     rx_message_lost_rate=drop_rate,
-                    rx_message_lost_count=getattr(
+                    communication_error_count=getattr(
                         message,
                         "errors_comm",
                         None,
@@ -492,6 +477,11 @@ def extract_failsafe(records: Iterable, source_platform: str):
                 "gcs connection lost",
                 "gcs link lost",
                 "ground station failsafe",
+            ),
+        ),
+        (
+            "manual_control_signal_lost",
+            (
                 "radio failsafe",
                 "radio link lost",
                 "radio connection lost",
@@ -568,6 +558,8 @@ def extract_failsafe(records: Iterable, source_platform: str):
 
         text = str(text).strip()
         lowered = text.lower()
+        if lowered.startswith(("no ", "not a ", "not an ")):
+            continue
 
         matched = None
 
@@ -582,28 +574,8 @@ def extract_failsafe(records: Iterable, source_platform: str):
         if matched is None:
             continue
 
-        values = {}
-
-        if matched == "gcs_connection_lost":
-            values["gcs_connection_lost"] = True
-
-        elif matched == "geofence_breached":
-            values["geofence_breached"] = True
-
-        elif matched == "battery_warning":
-            values["battery_warning"] = 1
-
-        elif matched == "motor_failure":
-            values["motor_failure"] = True
-
-        elif matched == "esc_arming_failure":
-            values["esc_arming_failure"] = True
-
-        elif matched == "navigator_failure":
-            values["navigator_failure"] = True
-
-        elif matched == "critical_failure":
-            values["critical_failure"] = True
+        resolved = any(word in lowered.split() for word in ("cleared", "resolved", "recovered", "restored"))
+        values = {matched: (0 if resolved else 1) if matched == "battery_warning" else not resolved}
 
         failsafe_records.append(
             FailsafeRecord(
