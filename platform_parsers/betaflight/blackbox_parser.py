@@ -19,7 +19,10 @@ class _BlackboxField:
     encoding: str
 
 
-class BetaflightBlackboxParser(BaseForensicParser):
+from platform_parsers.common.blackbox_evidence import BlackboxEvidenceMixin
+
+
+class BetaflightBlackboxParser(BlackboxEvidenceMixin, BaseForensicParser):
 
     platform_name = "Betaflight"
     supported_formats = ["BLACKBOX"]
@@ -555,258 +558,17 @@ class BetaflightBlackboxParser(BaseForensicParser):
     # ------------------------------------------------------------------
 
     def _iter_gps_frames(self):
+        return self._iter_complete_gps_frames()
 
-        raw = self._load_raw_header()
-
-        if not raw:
-            return
-
-        data_start = (
-            self._find_data_start(raw)
-        )
-
-        if data_start is None:
-            return
-
-        data = raw[data_start:]
-
-        home_fields = (
-            self._parse_field_headers("H")
-        )
-
-        gps_fields = (
-            self._parse_field_headers("G")
-        )
-
-        offset = 0
-
-        previous = {}
-        home = {}
-
-        while offset < len(data):
-
-            frame_offset = offset
-
-            frame_type = data[offset]
-
-            offset += 1
-
-            # ----------------------------------------------------------
-            # Home frame
-            # ----------------------------------------------------------
-
-            if frame_type == ord("H"):
-
-                values, offset = (
-                    self._decode_home_frame(
-                        data,
-                        offset,
-                        home_fields,
-                    )
-                )
-
-                home.update(values)
-
-                continue
-
-            # ----------------------------------------------------------
-            # GPS frame
-            # ----------------------------------------------------------
-
-            if frame_type == ord("G"):
-
-                values, offset = (
-                    self._decode_gps_frame(
-                        data,
-                        offset,
-                        gps_fields,
-                        previous,
-                        home,
-                    )
-                )
-
-                previous.update(values)
-
-                yield {
-                    "frame_type": "G",
-                    "values": values,
-                    "raw_offset": frame_offset,
-                }
-
-                continue
-
-            # ----------------------------------------------------------
-            # I frame marks main flight data
-            # ----------------------------------------------------------
-
-            if frame_type == ord("I"):
-
-                break
-
-            # ----------------------------------------------------------
-            # Other Blackbox frame types
-            # ----------------------------------------------------------
-
-            if frame_type in {
-                ord("P"),
-                ord("S"),
-                ord("E"),
-            }:
-
-                raise NotImplementedError(
-                    f"Encountered Blackbox frame "
-                    f"'{chr(frame_type)}'. "
-                    f"Full P/S/E decoding is not yet "
-                    f"implemented; refusing to guess "
-                    f"main-frame offsets."
-                )
-
-            raise ValueError(
-                f"Unknown Blackbox frame type "
-                f"0x{frame_type:02X} "
-                f"at offset {frame_offset}"
-            )
-
-    # ------------------------------------------------------------------
-    # Main frame iterator
-    # ------------------------------------------------------------------
 
     def _iter_main_frames(self):
+        return self._iter_complete_main_frames()
 
-        raw = self._load_raw_header()
-
-        if not raw:
-            return
-
-        header_end = (
-            self._find_data_start(raw)
-        )
-
-        if header_end is None:
-            return
-
-        data = raw[header_end:]
-
-        main_fields = (
-            self._parse_field_headers("I")
-        )
-
-        if not main_fields:
-            return
-
-        headers = self._parse_headers(raw)
-
-        home_fields = (
-            self._parse_field_headers("H")
-        )
-
-        gps_fields = (
-            self._parse_field_headers("G")
-        )
-
-        offset = 0
-
-        previous = {}
-        home = {}
-
-        while offset < len(data):
-
-            frame_offset = offset
-
-            frame_type = data[offset]
-
-            offset += 1
-
-            # ----------------------------------------------------------
-            # Home frame
-            # ----------------------------------------------------------
-
-            if frame_type == ord("H"):
-
-                values, offset = (
-                    self._decode_home_frame(
-                        data,
-                        offset,
-                        home_fields,
-                    )
-                )
-
-                home.update(values)
-
-                continue
-
-            # ----------------------------------------------------------
-            # GPS frame
-            # ----------------------------------------------------------
-
-            if frame_type == ord("G"):
-
-                values, offset = (
-                    self._decode_gps_frame(
-                        data,
-                        offset,
-                        gps_fields,
-                        previous,
-                        home,
-                    )
-                )
-
-                previous.update(values)
-
-                continue
-
-            # ----------------------------------------------------------
-            # Main/I frame
-            # ----------------------------------------------------------
-
-            if frame_type == ord("I"):
-
-                values, offset = (
-                    self._decode_main_frame(
-                        data,
-                        offset,
-                        main_fields,
-                        headers,
-                    )
-                )
-
-                yield {
-                    "frame_type": "I",
-                    "values": values,
-                    "raw_offset": frame_offset,
-                }
-
-                continue
-
-            # ----------------------------------------------------------
-            # Other frame types
-            # ----------------------------------------------------------
-
-            if frame_type in {
-                ord("P"),
-                ord("S"),
-                ord("E"),
-            }:
-
-                raise NotImplementedError(
-                    f"Encountered Blackbox frame "
-                    f"'{chr(frame_type)}'. "
-                    f"Full P/S/E decoding is not yet "
-                    f"implemented; refusing to guess "
-                    f"main-frame offsets."
-                )
-
-            raise ValueError(
-                f"Unknown Blackbox frame type "
-                f"0x{frame_type:02X} "
-                f"at offset {frame_offset}"
-            )
-
-    # ------------------------------------------------------------------
-    # Metadata
-    # ------------------------------------------------------------------
 
     def get_metadata(self):
+        return self._enrich_blackbox_metadata(self._legacy_metadata())
+
+    def _legacy_metadata(self):
         raw = self._load_raw_header()
         headers = self._parse_headers(raw)
 
@@ -1208,6 +970,8 @@ class BetaflightBlackboxParser(BaseForensicParser):
         for frame in self._iter_main_frames():
 
             values = frame["values"]
+            if not any(key in values for key in ("vbatLatest", "amperageLatest")):
+                continue
 
             timestamp = (
                 values.get(
@@ -1247,7 +1011,8 @@ class BetaflightBlackboxParser(BaseForensicParser):
                     source_platform=self.platform_name,
                     raw={
                         **values,
-                        "frame_type": "I",
+                        "frame_type": frame["frame_type"],
+                        "log_index": frame["log_index"],
                         "fields": values,
                         "raw_offset": frame[
                             "raw_offset"
@@ -1280,24 +1045,12 @@ class BetaflightBlackboxParser(BaseForensicParser):
     # ------------------------------------------------------------------
 
     def extract_telemetry(self):
-        """
-        Extract normalized telemetry records.
+        return super().extract_telemetry()
 
-        Betaflight Blackbox data available to this parser does not currently
-        expose a semantically equivalent MAVLink telemetry/link-status
-        dataset. Do not synthesize telemetry records from unrelated fields.
-        """
-        return []
 
     def extract_failsafe(self):
-        """
-        Extract normalized failsafe records.
+        return super().extract_failsafe()
 
-        No explicit failsafe dataset is currently decoded by this parser.
-        Return an empty collection rather than inferring failsafe states from
-        unrelated flight-controller fields.
-        """
-        return []
 
     def extract_commands(self):
         """
@@ -1318,45 +1071,16 @@ class BetaflightBlackboxParser(BaseForensicParser):
         return []
 
     def extract_states(self):
-        """
-        Extract normalized vehicle state records.
+        return super().extract_states()
 
-        State-bearing Blackbox fields are not currently decoded into the
-        normalized state model.
-        """
-        return []
 
     def extract_parameters(self):
-        """
-        Extract normalized parameter records.
+        return super().extract_parameters()
 
-        Blackbox headers are preserved as metadata, but parameter-change
-        records are not currently decoded.
-        """
-        return []
 
     def extract_events(self):
-        """
-        Extract normalized forensic events.
+        return super().extract_events()
 
-        P/S/E Blackbox frame decoding is not currently implemented, so no
-        event records are synthesized.
-        """
-        return []
 
     def parse(self):
-        """Build complete normalized evidence from the Betaflight log."""
-
-        return NormalizedEvidence(
-            metadata=self.get_metadata(),
-            gps=self.extract_gps(),
-            navigation=self.extract_navigation(),
-            battery=self.extract_battery(),
-            telemetry=self.extract_telemetry(),
-            failsafe=self.extract_failsafe(),
-            commands=self.extract_commands(),
-            command_acks=self.extract_command_acks(),
-            states=self.extract_states(),
-            parameters=self.extract_parameters(),
-            events=self.extract_events(),
-        )
+        return super().parse()
