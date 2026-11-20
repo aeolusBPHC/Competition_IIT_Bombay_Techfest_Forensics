@@ -320,7 +320,9 @@ def test_unsupported_sections_are_empty():
     assert parser.extract_commands() == []
     assert parser.extract_command_acks() == []
     assert parser.extract_states() == []
-    assert parser.extract_parameters() == []
+    parameters = parser.extract_parameters()
+    assert any(record.name == "Firmware revision" for record in parameters)
+    assert not any(record.name.startswith("Field ") for record in parameters)
     assert parser.extract_events() == []
 
 def test_inav_does_not_claim_betaflight_blackbox():
@@ -365,5 +367,7 @@ def test_inav_unsupported_normalized_categories_are_explicitly_empty():
     assert parser.extract_commands() == []
     assert parser.extract_command_acks() == []
     assert parser.extract_states() == []
-    assert parser.extract_parameters() == []
+    parameters = parser.extract_parameters()
+    assert any(record.name == "Firmware revision" for record in parameters)
+    assert not any(record.name.startswith("Field ") for record in parameters)
     assert parser.extract_events() == []
