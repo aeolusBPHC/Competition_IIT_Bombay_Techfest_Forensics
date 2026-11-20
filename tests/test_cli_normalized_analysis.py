@@ -81,6 +81,11 @@ def test_normalized_analysis_cli_record_counts(tmp_path):
 
     assert data["record_counts"] == {
         "gps": 2,
+        "navigation": 2,
+        "trajectory": 0,
+        "battery": 2,
+        "telemetry": 0,
+        "failsafe": 2,
         "commands": 1,
         "command_acks": 0,
         "states": 2,
