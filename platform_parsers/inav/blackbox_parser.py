@@ -21,7 +21,10 @@ class _BlackboxField:
     encoding: str
 
 
-class INAVBlackboxParser(BaseForensicParser):
+from platform_parsers.common.blackbox_evidence import BlackboxEvidenceMixin
+
+
+class INAVBlackboxParser(BlackboxEvidenceMixin, BaseForensicParser):
     """
     INAV Blackbox forensic parser.
 
@@ -538,116 +541,13 @@ class INAVBlackboxParser(BaseForensicParser):
     # ---------------------------------------------------------------
 
     def _iter_gps_frames(self):
+        return self._iter_complete_gps_frames()
 
-        raw = self._load_raw_header()
-
-        if not raw:
-            return
-
-        header_end = (
-            self._find_data_start(raw)
-        )
-
-        if header_end is None:
-            return
-
-        data = raw[header_end:]
-
-        gps_fields = (
-            self._parse_field_headers("G")
-        )
-
-        home_fields = (
-            self._parse_field_headers("H")
-        )
-
-        if not gps_fields:
-            return
-
-        home: dict[int, int] = {}
-
-        offset = 0
-
-        while offset < len(data):
-
-            frame_type = data[offset]
-            offset += 1
-
-            # -------------------------------------------------------
-            # H = GPS home/reference frame
-            # -------------------------------------------------------
-
-            if frame_type == self.HOME_FRAME:
-
-                if not home_fields:
-                    raise ValueError(
-                        "H frame encountered but no H field "
-                        "definitions were found"
-                    )
-
-                values, offset = (
-                    self._decode_home_frame(
-                        data,
-                        offset,
-                        home_fields,
-                    )
-                )
-
-                for name, value in values.items():
-
-                    if name == "GPS_home[0]":
-                        home[0] = value
-
-                    elif name == "GPS_home[1]":
-                        home[1] = value
-
-                yield {
-                    "frame_type": "H",
-                    "values": values,
-                    "raw_offset": offset,
-                }
-
-                continue
-
-            # -------------------------------------------------------
-            # G = GPS frame
-            # -------------------------------------------------------
-
-            if frame_type == self.GPS_FRAME:
-
-                values, offset = (
-                    self._decode_gps_frame(
-                        data,
-                        offset,
-                        gps_fields,
-                        home,
-                    )
-                )
-
-                yield {
-                    "frame_type": "G",
-                    "values": values,
-                    "raw_offset": offset,
-                }
-
-                continue
-
-            # -------------------------------------------------------
-            # We intentionally refuse to guess around other frames.
-            # -------------------------------------------------------
-
-            raise NotImplementedError(
-                "Encountered INAV Blackbox frame "
-                f"{chr(frame_type)!r}. "
-                "Full I/P/S/E decoding is not yet implemented; "
-                "refusing to guess GPS offsets."
-            )
-
-    # ---------------------------------------------------------------
-    # Metadata
-    # ---------------------------------------------------------------
 
     def get_metadata(self):
+        return self._enrich_blackbox_metadata(self._legacy_metadata())
+
+    def _legacy_metadata(self):
 
         headers = self._parse_headers(
             self._load_raw_header()
@@ -929,32 +829,16 @@ class INAVBlackboxParser(BaseForensicParser):
     # ---------------------------------------------------------------
 
     def extract_battery(self):
-        """
-        Extract normalized battery records.
+        return super().extract_battery()
 
-        INAV I-frame decoding is not currently implemented in this parser.
-        Therefore battery records cannot be extracted reliably from the
-        current implementation without guessing field offsets or meanings.
-        """
-        return []
 
     def extract_telemetry(self):
-        """
-        Extract normalized telemetry records.
+        return super().extract_telemetry()
 
-        No telemetry/link-status dataset is currently decoded from the
-        INAV Blackbox evidence.
-        """
-        return []
 
     def extract_failsafe(self):
-        """
-        Extract normalized failsafe records.
+        return super().extract_failsafe()
 
-        Explicit failsafe records are not currently decoded from INAV
-        Blackbox frames.
-        """
-        return []
 
     def extract_commands(self):
         """
@@ -974,45 +858,16 @@ class INAVBlackboxParser(BaseForensicParser):
         return []
 
     def extract_states(self):
-        """
-        Extract normalized vehicle state records.
+        return super().extract_states()
 
-        INAV I/P/S/E frame decoding is not currently implemented, so state
-        records are not inferred from GPS records.
-        """
-        return []
 
     def extract_parameters(self):
-        """
-        Extract normalized parameter records.
+        return super().extract_parameters()
 
-        Parameter records are not currently decoded from the Blackbox
-        evidence.
-        """
-        return []
 
     def extract_events(self):
-        """
-        Extract normalized forensic events.
+        return super().extract_events()
 
-        INAV P/S/E frame decoding is not currently implemented, so forensic
-        events are not synthesized.
-        """
-        return []
 
     def parse(self):
-        """Build complete normalized evidence from the INAV Blackbox log."""
-
-        return NormalizedEvidence(
-            metadata=self.get_metadata(),
-            gps=self.extract_gps(),
-            navigation=self.extract_navigation(),
-            battery=self.extract_battery(),
-            telemetry=self.extract_telemetry(),
-            failsafe=self.extract_failsafe(),
-            commands=self.extract_commands(),
-            command_acks=self.extract_command_acks(),
-            states=self.extract_states(),
-            parameters=self.extract_parameters(),
-            events=self.extract_events(),
-        )
+        return super().parse()
