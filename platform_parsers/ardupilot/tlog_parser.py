@@ -1,4 +1,5 @@
 from pathlib import Path
+from platform_parsers.mavlink.extended_extractors import mavlink_decoder
 import struct
 
 from platform_parsers.common.base_parser import BaseForensicParser
@@ -298,7 +299,7 @@ class ArduPilotTLogParser(BaseForensicParser):
                 continue
 
             try:
-                parser = mavutil.mavlink.MAVLink(
+                parser = mavlink_decoder(
                     None
                 )
 
@@ -432,6 +433,11 @@ class ArduPilotTLogParser(BaseForensicParser):
         }
 
     def _iter_tlog(self):
+        if not hasattr(self, "_tlog_records"):
+            self._tlog_records = list(self._decode_tlog())
+        return iter(self._tlog_records)
+
+    def _decode_tlog(self):
         """
         Iterate through the complete TLOG.
 
@@ -545,7 +551,7 @@ class ArduPilotTLogParser(BaseForensicParser):
                 packet_end
             ]
 
-            parser = mavutil.mavlink.MAVLink(
+            parser = mavlink_decoder(
                 None
             )
 
@@ -574,6 +580,18 @@ class ArduPilotTLogParser(BaseForensicParser):
             offset = packet_end
 
     def get_metadata(self):
+        metadata = self._basic_metadata()
+        records = list(self._iter_tlog())
+        times = [record["timestamp"] for record in records]
+        metadata.start_time = min(times) if times else None
+        metadata.end_time = max(times) if times else None
+        metadata.duration = max(times) - min(times) if times else None
+        from collections import Counter
+        metadata.metadata["message_counts"] = dict(Counter(record["message"].get_type() for record in records))
+        metadata.metadata["time_base"] = "recorded TLOG packet timestamps in seconds; native vehicle timestamps remain in raw"
+        return metadata
+
+    def _basic_metadata(self):
         """
         Return normalized evidence metadata.
         """
@@ -764,7 +782,17 @@ class ArduPilotTLogParser(BaseForensicParser):
                     )
                 )
 
+        from platform_parsers.mavlink.extended_extractors import extra_gps
+        gps_records.extend(extra_gps(self._iter_tlog(), self.platform_name))
         return gps_records
+
+    def extract_trajectory(self):
+        from platform_parsers.mavlink.extended_extractors import extract_trajectory
+        return extract_trajectory(self._iter_tlog(), self.platform_name)
+
+    def extract_additional_data(self):
+        from platform_parsers.mavlink.extended_extractors import additional_data
+        return additional_data(self._iter_tlog())
 
     def extract_navigation(self):
         """
@@ -988,7 +1016,9 @@ class ArduPilotTLogParser(BaseForensicParser):
                 )
             )
 
-        return battery_records
+        from platform_parsers.mavlink.extended_extractors import extra_battery
+        battery_records.extend(extra_battery(self._iter_tlog(), self.platform_name))
+        return sorted(battery_records, key=lambda record: record.timestamp)
 
     def extract_telemetry(self):
         """Extract normalized MAVLink telemetry records."""
@@ -999,10 +1029,10 @@ class ArduPilotTLogParser(BaseForensicParser):
 
     def extract_failsafe(self):
         """Extract explicitly logged failsafe information."""
-        return extract_mavlink_failsafe(
-            self._iter_tlog(),
-            self.platform_name,
-        )
+        from platform_parsers.mavlink.extended_extractors import structured_failsafe
+        result = extract_mavlink_failsafe(self._iter_tlog(), self.platform_name)
+        result.extend(structured_failsafe(self._iter_tlog(), self.platform_name))
+        return sorted(result, key=lambda record: record.timestamp)
 
     def extract_commands(self):
         """Extract COMMAND_LONG and COMMAND_INT records."""
@@ -1027,10 +1057,9 @@ class ArduPilotTLogParser(BaseForensicParser):
 
     def extract_parameters(self):
         """Extract PARAM_VALUE and PARAM_SET records."""
-        return extract_mavlink_parameters(
-            self._iter_tlog(),
-            self.platform_name,
-        )
+        from platform_parsers.mavlink.extended_extractors import extra_parameters
+        return (extract_mavlink_parameters(self._iter_tlog(), self.platform_name)
+                + extra_parameters(self._iter_tlog(), self.platform_name))
 
     def extract_events(self):
         """Extract STATUSTEXT forensic events."""
@@ -1040,19 +1069,4 @@ class ArduPilotTLogParser(BaseForensicParser):
         )
 
     def parse(self):
-        """Build complete normalized evidence from the ArduPilot TLOG."""
-
-        return NormalizedEvidence(
-            metadata=self.get_metadata(),
-            gps=self.extract_gps(),
-            navigation=self.extract_navigation(),
-            battery=self.extract_battery(),
-            telemetry=self.extract_telemetry(),
-            failsafe=self.extract_failsafe(),
-            commands=self.extract_commands(),
-            command_acks=self.extract_command_acks(),
-            states=self.extract_states(),
-            parameters=self.extract_parameters(),
-            events=self.extract_events(),
-        )
-
+        return super().parse()
