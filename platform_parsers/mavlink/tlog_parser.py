@@ -1,4 +1,5 @@
 from pathlib import Path
+from platform_parsers.mavlink.extended_extractors import mavlink_decoder
 import struct
 
 from platform_parsers.common.base_parser import BaseForensicParser
@@ -21,23 +22,41 @@ from platform_parsers.mavlink.normalized_extractors import (
 )
 
 
-class MAVLinkTLogParser(BaseForensicParser):
+class ArduPilotTLogParser(BaseForensicParser):
     """
-    Generic MAVLink TLOG forensic parser.
+    Parser for ArduPilot telemetry logs stored in MAVLink TLOG format.
 
-    Current scope:
+    Platform identification is conservative:
+
+    - A valid MAVLink TLOG structure alone does NOT identify ArduPilot.
+    - ArduPilot identification requires platform-specific MAVLink
+      evidence.
+    - Currently, HEARTBEAT.autopilot == 3
+      (MAV_AUTOPILOT_ARDUPILOTMEGA) is used as the primary
+      ArduPilot platform indicator.
+
+    Current extraction scope:
     - TLOG structural detection
     - MAVLink version detection
+    - ArduPilot platform identification
     - MAVLink message extraction
     - GPS extraction
-    - Normalized GPS evidence
+    - Navigation extraction
+    - Battery extraction
+    - Normalized evidence generation
 
     Supported GPS messages:
     - GPS_RAW_INT
     - GLOBAL_POSITION_INT
+
+    Supported navigation messages:
+    - GLOBAL_POSITION_INT
+
+    Supported battery messages:
+    - BATTERY_STATUS
     """
 
-    platform_name = "MAVLink"
+    platform_name = "ArduPilot"
 
     supported_formats = [
         "TLOG",
@@ -46,11 +65,30 @@ class MAVLinkTLogParser(BaseForensicParser):
 
     TIMESTAMP_SIZE = 8
 
+    # MAVLink enum:
+    # MAV_AUTOPILOT_ARDUPILOTMEGA = 3
+    ARDUPILOT_AUTOPILOT_ID = 3
+
     @classmethod
     def identify(cls, evidence_path):
         """
-        Identify whether the evidence file has a valid MAVLink
-        TLOG structure.
+        Identify an ArduPilot TLOG.
+
+        A valid MAVLink TLOG structure is not sufficient to claim
+        ArduPilot. Platform-specific evidence must be present.
+
+        Important distinction:
+
+        - supported=True:
+            This parser claims the evidence as ArduPilot TLOG.
+
+        - supported=False + format="TLOG":
+            The file is structurally recognized as a TLOG, but
+            there is insufficient evidence to attribute it to
+            ArduPilot.
+
+        - supported=False + format=None:
+            The file could not be identified as a valid TLOG.
         """
 
         path = Path(evidence_path)
@@ -76,6 +114,10 @@ class MAVLinkTLogParser(BaseForensicParser):
         try:
             result = cls._inspect_tlog(path)
 
+            # --------------------------------------------------
+            # Invalid TLOG
+            # --------------------------------------------------
+
             if not result["valid"]:
                 return {
                     "supported": False,
@@ -83,18 +125,59 @@ class MAVLinkTLogParser(BaseForensicParser):
                     "format": None,
                     "confidence": "NONE",
                     "reason": result["reason"],
+                    "indicators": result.get(
+                        "indicators",
+                        {},
+                    ),
+                    "platform_evidence": result.get(
+                        "platform_evidence",
+                        {},
+                    ),
                 }
 
+            platform_evidence = result.get(
+                "platform_evidence",
+                {},
+            )
+
+            # --------------------------------------------------
+            # Platform-specific ArduPilot evidence
+            # --------------------------------------------------
+
+            if platform_evidence.get("ardupilot"):
+                return {
+                    "supported": True,
+                    "platform": cls.platform_name,
+                    "format": "TLOG",
+                    "confidence": "HIGH",
+                    "reason": (
+                        "MAVLink TLOG contains platform-specific "
+                        "evidence identifying ArduPilot"
+                    ),
+                    "indicators": result["indicators"],
+                    "platform_evidence": platform_evidence,
+                }
+
+            # --------------------------------------------------
+            # Valid TLOG, but platform is not ArduPilot
+            #
+            # The format is still known to be TLOG. We therefore
+            # preserve format="TLOG" for diagnostic purposes while
+            # refusing to claim the platform.
+            # --------------------------------------------------
+
             return {
-                "supported": True,
+                "supported": False,
                 "platform": cls.platform_name,
                 "format": "TLOG",
-                "confidence": "LOW",
+                "confidence": "NONE",
                 "reason": (
-                    "Generic MAVLink TLOG structure detected; "
-                    "flight-controller platform not yet resolved"
+                    "Valid MAVLink TLOG detected, but "
+                    "ArduPilot-specific platform evidence "
+                    "was not found"
                 ),
                 "indicators": result["indicators"],
+                "platform_evidence": platform_evidence,
             }
 
         except Exception as exc:
@@ -103,18 +186,31 @@ class MAVLinkTLogParser(BaseForensicParser):
                 "platform": cls.platform_name,
                 "format": None,
                 "confidence": "ERROR",
-                "reason": (
-                    f"MAVLink TLOG validation failed: {exc}"
-                ),
+                "reason": f"TLOG validation failed: {exc}",
             }
 
     @classmethod
     def _inspect_tlog(cls, path):
         """
-        Inspect the first part of a TLOG file.
+        Inspect the first portion of a TLOG.
 
-        This is used only for format detection and does not
-        parse the complete evidence file.
+        Each TLOG record is expected to contain:
+
+            8-byte big-endian timestamp
+            MAVLink packet
+
+        This method is used for detection only.
+
+        It records:
+
+        - number of valid MAVLink records
+        - MAVLink versions
+        - message types
+        - HEARTBEAT detection
+        - HEARTBEAT autopilot values
+        - ArduPilot-specific platform evidence
+
+        It does not parse the complete evidence file.
         """
 
         max_scan = 1024 * 1024
@@ -129,75 +225,229 @@ class MAVLinkTLogParser(BaseForensicParser):
                     "File is too small to contain a TLOG record"
                 ),
                 "indicators": {},
+                "platform_evidence": {},
             }
 
         try:
-            records = list(
-                cls._iter_tlog_bytes(
-                    data,
-                    max_records=None,
-                )
-            )
+            from pymavlink import mavutil
 
-        except Exception as exc:
+        except ImportError:
             return {
                 "valid": False,
-                "reason": f"TLOG parsing failed: {exc}",
+                "reason": "pymavlink is not installed",
                 "indicators": {},
+                "platform_evidence": {},
             }
 
-        if not records:
+        offset = 0
+        records = 0
+
+        mavlink_versions = set()
+        message_types = []
+
+        # ------------------------------------------------------
+        # Platform-specific evidence
+        # ------------------------------------------------------
+
+        platform_evidence = {
+            "ardupilot": False,
+            "heartbeat_detected": False,
+            "autopilot_values": [],
+            "custom_mode_values": [],
+        }
+
+        while (
+            offset + cls.TIMESTAMP_SIZE
+            < len(data)
+        ):
+            timestamp_bytes = data[
+                offset:
+                offset + cls.TIMESTAMP_SIZE
+            ]
+
+            timestamp_us = struct.unpack(
+                ">Q",
+                timestamp_bytes,
+            )[0]
+
+            if timestamp_us == 0:
+                offset += 1
+                continue
+
+            packet_start = (
+                offset + cls.TIMESTAMP_SIZE
+            )
+
+            magic_index = None
+
+            for candidate in range(
+                packet_start,
+                min(
+                    packet_start + 16,
+                    len(data),
+                ),
+            ):
+                if data[candidate] in (
+                    0xFE,
+                    0xFD,
+                ):
+                    magic_index = candidate
+                    break
+
+            if magic_index is None:
+                offset += 1
+                continue
+
+            try:
+                parser = mavlink_decoder(
+                    None
+                )
+
+                message = parser.parse_char(
+                    data[magic_index:]
+                )
+
+                if message is None:
+                    offset += 1
+                    continue
+
+                records += 1
+
+                # --------------------------------------------------
+                # MAVLink version
+                # --------------------------------------------------
+
+                if data[magic_index] == 0xFE:
+                    mavlink_versions.add(
+                        "MAVLink 1"
+                    )
+
+                elif data[magic_index] == 0xFD:
+                    mavlink_versions.add(
+                        "MAVLink 2"
+                    )
+
+                message_type = message.get_type()
+
+                message_types.append(
+                    message_type
+                )
+
+                # --------------------------------------------------
+                # HEARTBEAT / platform identification
+                # --------------------------------------------------
+
+                if message_type == "HEARTBEAT":
+
+                    platform_evidence[
+                        "heartbeat_detected"
+                    ] = True
+
+                    # ----------------------------------------------
+                    # Autopilot enum
+                    # ----------------------------------------------
+
+                    try:
+                        autopilot = int(
+                            message.autopilot
+                        )
+
+                        platform_evidence[
+                            "autopilot_values"
+                        ].append(
+                            autopilot
+                        )
+
+                        if (
+                            autopilot
+                            == cls.ARDUPILOT_AUTOPILOT_ID
+                        ):
+                            platform_evidence[
+                                "ardupilot"
+                            ] = True
+
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                    ):
+                        pass
+
+                    # ----------------------------------------------
+                    # Custom mode
+                    # ----------------------------------------------
+
+                    try:
+                        platform_evidence[
+                            "custom_mode_values"
+                        ].append(
+                            int(message.custom_mode)
+                        )
+
+                    except (
+                        AttributeError,
+                        TypeError,
+                        ValueError,
+                    ):
+                        pass
+
+                # Move forward. The existing TLOG detection
+                # mechanism advances past the detected packet.
+                offset = magic_index + 2
+
+            except Exception:
+                offset += 1
+
+        # ------------------------------------------------------
+        # No valid MAVLink records
+        # ------------------------------------------------------
+
+        if records == 0:
             return {
                 "valid": False,
                 "reason": (
                     "No valid MAVLink records detected"
                 ),
                 "indicators": {},
+                "platform_evidence": {},
             }
 
-        mavlink_versions = set()
-        message_types = []
-
-        for record in records:
-
-            mavlink_versions.add(
-                record["mavlink_version"]
-            )
-
-            message_types.append(
-                record["message"].get_type()
-            )
+        # ------------------------------------------------------
+        # Valid MAVLink TLOG
+        # ------------------------------------------------------
 
         return {
             "valid": True,
-            "reason": "Valid MAVLink records detected",
+            "reason": (
+                "MAVLink telemetry records detected "
+                "in TLOG-compatible binary structure"
+            ),
             "indicators": {
-                "records_detected": len(records),
+                "records_detected": records,
                 "mavlink_versions": sorted(
                     mavlink_versions
                 ),
                 "message_types": message_types,
             },
+            "platform_evidence": platform_evidence,
         }
 
-    @classmethod
-    def _iter_tlog_bytes(
-        cls,
-        data,
-        max_records=None,
-    ):
-        """
-        Iterate over TLOG records.
+    def _iter_tlog(self):
+        if not hasattr(self, "_tlog_records"):
+            self._tlog_records = list(self._decode_tlog())
+        return iter(self._tlog_records)
 
-        TLOG structure:
+    def _decode_tlog(self):
+        """
+        Iterate through the complete TLOG.
+
+        Each record consists of:
 
             8-byte big-endian timestamp
             MAVLink packet
 
-        MAVLink packets can use:
-
-            MAVLink 1 -> 0xFE
-            MAVLink 2 -> 0xFD
+        The current PoC loads the complete evidence file
+        into memory.
         """
 
         try:
@@ -208,32 +458,35 @@ class MAVLinkTLogParser(BaseForensicParser):
                 "pymavlink is not installed"
             ) from exc
 
+        data = self.evidence_path.read_bytes()
+
         offset = 0
-        records = 0
 
         while (
-            offset + cls.TIMESTAMP_SIZE
+            offset + self.TIMESTAMP_SIZE
             <= len(data)
         ):
-
             timestamp_offset = offset
 
             timestamp_us = struct.unpack(
                 ">Q",
                 data[
                     offset:
-                    offset + cls.TIMESTAMP_SIZE
+                    offset + self.TIMESTAMP_SIZE
                 ],
             )[0]
 
-            offset += cls.TIMESTAMP_SIZE
+            offset += self.TIMESTAMP_SIZE
 
             if offset >= len(data):
                 break
 
             magic = data[offset]
 
-            if magic not in (0xFE, 0xFD):
+            if magic not in (
+                0xFE,
+                0xFD,
+            ):
                 raise ValueError(
                     "Invalid MAVLink magic byte at "
                     f"offset {offset}: "
@@ -245,7 +498,9 @@ class MAVLinkTLogParser(BaseForensicParser):
                     "Incomplete MAVLink header"
                 )
 
-            payload_length = data[offset + 1]
+            payload_length = data[
+                offset + 1
+            ]
 
             # --------------------------------------------------
             # MAVLink 1
@@ -267,9 +522,11 @@ class MAVLinkTLogParser(BaseForensicParser):
                 checksum_length = 2
                 mavlink_version = "MAVLink 2"
 
-                incompat_flags = data[offset + 2]
+                incompat_flags = data[
+                    offset + 2
+                ]
 
-                # MAVLink 2 signing adds a 13-byte signature.
+                # MAVLink 2 signing adds 13 bytes.
                 if incompat_flags & 0x01:
                     checksum_length += 13
 
@@ -294,7 +551,7 @@ class MAVLinkTLogParser(BaseForensicParser):
                 packet_end
             ]
 
-            parser = mavutil.mavlink.MAVLink(
+            parser = mavlink_decoder(
                 None
             )
 
@@ -320,34 +577,21 @@ class MAVLinkTLogParser(BaseForensicParser):
                 "packet_offset": offset,
             }
 
-            records += 1
-
             offset = packet_end
 
-            if (
-                max_records is not None
-                and records >= max_records
-            ):
-                break
-
-    def _iter_tlog(self):
-        """
-        Iterate over all TLOG records.
-
-        The complete evidence file is loaded for the current
-        PoC implementation.
-
-        Later this can be replaced with streaming/chunked
-        processing for very large TLOG files.
-        """
-
-        data = self.evidence_path.read_bytes()
-
-        yield from self._iter_tlog_bytes(
-            data
-        )
-
     def get_metadata(self):
+        metadata = self._basic_metadata()
+        records = list(self._iter_tlog())
+        times = [record["timestamp"] for record in records]
+        metadata.start_time = min(times) if times else None
+        metadata.end_time = max(times) if times else None
+        metadata.duration = max(times) - min(times) if times else None
+        from collections import Counter
+        metadata.metadata["message_counts"] = dict(Counter(record["message"].get_type() for record in records))
+        metadata.metadata["time_base"] = "recorded TLOG packet timestamps in seconds; native vehicle timestamps remain in raw"
+        return metadata
+
+    def _basic_metadata(self):
         """
         Return normalized evidence metadata.
         """
@@ -367,20 +611,18 @@ class MAVLinkTLogParser(BaseForensicParser):
 
         Supported messages:
 
-        1. GPS_RAW_INT
-           - Raw GPS measurements
-           - Latitude/longitude: degrees * 1e7
-           - Altitude: millimeters
-           - Velocity: centimeters/second
-           - Heading: centidegrees
-           - HDOP/VDOP: value * 0.01
+        GPS_RAW_INT:
+            - latitude/longitude: degrees * 1e7
+            - altitude: millimeters
+            - velocity: centimeters/second
+            - heading: centidegrees
+            - HDOP/VDOP: value * 0.01
 
-        2. GLOBAL_POSITION_INT
-           - Filtered/global vehicle position
-           - Latitude/longitude: degrees * 1e7
-           - Altitude: millimeters
-           - VX/VY: centimeters/second
-           - Heading: centidegrees
+        GLOBAL_POSITION_INT:
+            - latitude/longitude: degrees * 1e7
+            - altitude: millimeters
+            - VX/VY: centimeters/second
+            - heading: centidegrees
         """
 
         gps_records = []
@@ -517,7 +759,6 @@ class MAVLinkTLogParser(BaseForensicParser):
 
                 heading_deg = None
 
-                # 65535 means heading unavailable.
                 if (
                     message.hdg is not None
                     and message.hdg != 65535
@@ -541,21 +782,30 @@ class MAVLinkTLogParser(BaseForensicParser):
                     )
                 )
 
+        from platform_parsers.mavlink.extended_extractors import extra_gps
+        gps_records.extend(extra_gps(self._iter_tlog(), self.platform_name))
         return gps_records
+
+    def extract_trajectory(self):
+        from platform_parsers.mavlink.extended_extractors import extract_trajectory
+        return extract_trajectory(self._iter_tlog(), self.platform_name)
+
+    def extract_additional_data(self):
+        from platform_parsers.mavlink.extended_extractors import additional_data
+        return additional_data(self._iter_tlog())
 
     def extract_navigation(self):
         """
         Extract normalized navigation records from
         GLOBAL_POSITION_INT MAVLink messages.
 
-        GLOBAL_POSITION_INT provides the filtered/global
-        vehicle position estimate.
-
-        Normalization:
-        - lat / 1e7 -> degrees
-        - lon / 1e7 -> degrees
-        - alt / 1000 -> meters
-        - relative_alt / 1000 -> meters above home
+        GLOBAL_POSITION_INT provides:
+        - latitude
+        - longitude
+        - altitude above MSL
+        - altitude above home
+        - ground velocity
+        - vehicle heading
 
         The outer TLOG timestamp is used as the
         forensic timestamp.
@@ -569,8 +819,6 @@ class MAVLinkTLogParser(BaseForensicParser):
 
             if message.get_type() != "GLOBAL_POSITION_INT":
                 continue
-
-            raw = message.to_dict()
 
             navigation_records.append(
                 NavigationRecord(
@@ -602,7 +850,24 @@ class MAVLinkTLogParser(BaseForensicParser):
 
                     source_platform=self.platform_name,
 
-                    raw=raw,
+                    raw={
+                        "mavpackettype": "GLOBAL_POSITION_INT",
+                        "time_boot_ms": message.time_boot_ms,
+                        "lat": message.lat,
+                        "lon": message.lon,
+                        "alt": message.alt,
+                        "relative_alt": message.relative_alt,
+                        "vx": message.vx,
+                        "vy": message.vy,
+                        "vz": message.vz,
+                        "hdg": message.hdg,
+                        "mavlink_version": record[
+                            "mavlink_version"
+                        ],
+                        "timestamp_us": record[
+                            "timestamp_us"
+                        ],
+                    },
                 )
             )
 
@@ -612,23 +877,6 @@ class MAVLinkTLogParser(BaseForensicParser):
         """
         Extract BATTERY_STATUS MAVLink messages into
         normalized BatteryRecord objects.
-
-        MAVLink BATTERY_STATUS units:
-
-        temperature:
-            centi-degrees Celsius
-
-        voltages:
-            millivolts per cell
-
-        current_battery:
-            centi-amperes
-
-        current_consumed:
-            milliampere-hours
-
-        battery_remaining:
-            percentage
         """
 
         battery_records = []
@@ -661,7 +909,6 @@ class MAVLinkTLogParser(BaseForensicParser):
 
             for voltage_mv in message.voltages:
 
-                # MAVLink UINT16_MAX means invalid/unavailable.
                 if voltage_mv == 65535:
                     continue
 
@@ -705,8 +952,8 @@ class MAVLinkTLogParser(BaseForensicParser):
                 message.current_consumed is not None
                 and message.current_consumed != -1
             ):
-                discharged_mah = (
-                    float(message.current_consumed)
+                discharged_mah = float(
+                    message.current_consumed
                 )
 
             # --------------------------------------------------
@@ -769,7 +1016,9 @@ class MAVLinkTLogParser(BaseForensicParser):
                 )
             )
 
-        return battery_records
+        from platform_parsers.mavlink.extended_extractors import extra_battery
+        battery_records.extend(extra_battery(self._iter_tlog(), self.platform_name))
+        return sorted(battery_records, key=lambda record: record.timestamp)
 
     def extract_telemetry(self):
         """Extract normalized MAVLink telemetry records."""
@@ -780,10 +1029,10 @@ class MAVLinkTLogParser(BaseForensicParser):
 
     def extract_failsafe(self):
         """Extract explicitly logged failsafe information."""
-        return extract_mavlink_failsafe(
-            self._iter_tlog(),
-            self.platform_name,
-        )
+        from platform_parsers.mavlink.extended_extractors import structured_failsafe
+        result = extract_mavlink_failsafe(self._iter_tlog(), self.platform_name)
+        result.extend(structured_failsafe(self._iter_tlog(), self.platform_name))
+        return sorted(result, key=lambda record: record.timestamp)
 
     def extract_commands(self):
         """Extract COMMAND_LONG and COMMAND_INT records."""
@@ -808,10 +1057,9 @@ class MAVLinkTLogParser(BaseForensicParser):
 
     def extract_parameters(self):
         """Extract PARAM_VALUE and PARAM_SET records."""
-        return extract_mavlink_parameters(
-            self._iter_tlog(),
-            self.platform_name,
-        )
+        from platform_parsers.mavlink.extended_extractors import extra_parameters
+        return (extract_mavlink_parameters(self._iter_tlog(), self.platform_name)
+                + extra_parameters(self._iter_tlog(), self.platform_name))
 
     def extract_events(self):
         """Extract STATUSTEXT forensic events."""
@@ -821,19 +1069,4 @@ class MAVLinkTLogParser(BaseForensicParser):
         )
 
     def parse(self):
-        """Build complete normalized evidence from the MAVLink TLOG."""
-
-        return NormalizedEvidence(
-            metadata=self.get_metadata(),
-            gps=self.extract_gps(),
-            navigation=self.extract_navigation(),
-            battery=self.extract_battery(),
-            telemetry=self.extract_telemetry(),
-            failsafe=self.extract_failsafe(),
-            commands=self.extract_commands(),
-            command_acks=self.extract_command_acks(),
-            states=self.extract_states(),
-            parameters=self.extract_parameters(),
-            events=self.extract_events(),
-        )
-
+        return super().parse()
