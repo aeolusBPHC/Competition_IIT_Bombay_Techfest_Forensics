@@ -256,6 +256,7 @@ class DecodeStats:
     unknown_event_types: list[int] = field(default_factory=list)
     truncated_at_end: bool = False
     log_end_marker_found: bool = False
+    decode_error_samples: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -268,6 +269,7 @@ class DecodeStats:
             "unknown_event_types": sorted(set(self.unknown_event_types)),
             "truncated_at_end": self.truncated_at_end,
             "log_end_marker_found": self.log_end_marker_found,
+            "decode_error_samples": list(self.decode_error_samples),
         }
 
 
@@ -310,7 +312,10 @@ def parse_headers(data: bytes) -> tuple[dict[str, str], int]:
         line = data[pos + 2:nl].decode("latin-1").rstrip("\r")
         if ":" in line:
             key, value = line.split(":", 1)
-            headers[key] = value
+            headers[key.strip()] = value.strip()
+        elif "=" in line:
+            key, value = line.split("=", 1)
+            headers[key.strip()] = value.strip()
         pos = nl + 1
     return headers, pos
 
@@ -318,7 +323,15 @@ def parse_headers(data: bytes) -> tuple[dict[str, str], int]:
 def _int_list(text: str | None) -> list[int]:
     if not text:
         return []
-    return [int(x) for x in text.split(",") if x.strip() != ""]
+    aliases = {"U": 0, "S": 1, "SIGNED_VB": 0, "UNSIGNED_VB": 1,
+               "NEG_14BIT": 3, "TAG8_8SVB": 6, "TAG2_3S32": 7,
+               "TAG8_4S16": 8, "NULL": 9, "TAG2_3SVARIABLE": 10,
+               "ZERO": 0, "PREVIOUS": 1, "LAST": 1, "STRAIGHT_LINE": 2,
+               "AVERAGE_2": 3, "MINTHROTTLE": 4, "MOTOR_0": 5,
+               "INC": 6, "INCREMENT": 6, "HOME_COORD": 7, "PREDICTOR_1500": 8,
+               "VBATREF": 9, "LAST_MAIN_FRAME_TIME": 10, "MINMOTOR": 11}
+    return [aliases[x.strip()] if x.strip() in aliases else int(x.strip())
+            for x in text.split(",") if x.strip()]
 
 
 def build_frame_defs(headers: dict[str, str]) -> dict[str, FrameDef]:
@@ -585,7 +598,10 @@ class BlackboxLogDecoder:
                 self.main_history_valid = False
                 pos += 1
                 continue
-            except BlackboxDecodeError:
+            except BlackboxDecodeError as exc:
+                if len(stats.decode_error_samples) < 20:
+                    stats.decode_error_samples.append({"file_offset": frame_offset,
+                                                       "frame_type": ftype, "reason": str(exc)})
                 if reader.pos >= n:
                     stats.truncated_at_end = True
                     break
