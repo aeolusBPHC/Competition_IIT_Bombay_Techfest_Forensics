@@ -184,7 +184,9 @@ def test_failsafe_records(fixture_file):
 def test_unavailable_categories_are_empty_not_invented(fixture_file):
     path, *_ = fixture_file
     parser = EmuFlightBlackboxParser(path)
-    assert parser.extract_navigation() == []
+    navigation = parser.extract_navigation()
+    assert len(navigation) == len(parser.extract_gps())
+    assert all(record.altitude_m is None for record in navigation)
     assert parser.extract_commands() == []
     assert parser.extract_command_acks() == []
     assert parser.extract_telemetry() == []
