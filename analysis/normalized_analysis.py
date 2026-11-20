@@ -28,6 +28,7 @@ class NormalizedForensicAnalyzer:
             "record_counts": {
                 "gps": len(self.evidence.gps),
                 "navigation": len(self.evidence.navigation),
+                "trajectory": len(self.evidence.trajectory),
                 "battery": len(self.evidence.battery),
                 "telemetry": len(self.evidence.telemetry),
                 "failsafe": len(self.evidence.failsafe),
@@ -351,6 +352,7 @@ class NormalizedForensicAnalyzer:
             }
 
         boolean_fields = [
+            "failsafe_active",
             "angular_velocity_invalid",
             "attitude_invalid",
             "local_altitude_invalid",
