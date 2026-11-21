@@ -26,23 +26,8 @@ OUTPUT = Path(
 
 
 def make_subdataset(dataset, start_time, end_time):
-    mask = (
-        (dataset.timestamps >= start_time)
-        & (dataset.timestamps <= end_time)
-    )
-
-    indices = np.flatnonzero(mask)
-
-    if len(indices) == 0:
-        return None
-
-    return type(dataset)(
-        timestamps=dataset.timestamps[indices],
-        positions=dataset.positions[indices],
-        velocities=dataset.velocities[indices],
-        features=dataset.features[indices],
-        feature_names=dataset.feature_names,
-    )
+    from ml.trajectory_dataset import slice_time_range
+    return slice_time_range(dataset, start_time, end_time)
 
 
 def generate_windows(
