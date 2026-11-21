@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import cos, radians
 from typing import Any
 
@@ -36,15 +36,61 @@ class TrajectoryPoint:
     position_valid: bool = True
 
 
+FEATURE_NAMES = [
+    "x_m", "y_m", "z_m", "vx_m_s", "vy_m_s", "vz_m_s",
+    "speed_m_s", "heading_sin", "heading_cos", "position_valid",
+]
+COORDINATE_FRAME = "ENU"
+FEATURE_CONTRACT_VERSION = 2
+
+
 @dataclass
 class TrajectoryDataset:
-    """Numeric trajectory data suitable for ML."""
+    """Shared numeric contract. Heading is course CCW from east, in ENU.
+
+    Ground truth is optional and never becomes a model input. Real log
+    targets are estimator observations, not independently measured truth.
+    """
 
     timestamps: np.ndarray
     positions: np.ndarray
     velocities: np.ndarray
     features: np.ndarray
     feature_names: list[str]
+    segment_ids: np.ndarray | None = None
+    accelerations: np.ndarray | None = None
+    ground_truth_positions: np.ndarray | None = None
+    trajectory_source: str = "unspecified"
+    coordinate_frame: str = COORDINATE_FRAME
+    coordinate_origin: dict | None = None
+    source_platform: str = "unspecified"
+    trajectory_id: str = ""
+    split: str = ""
+    scenario: str = "real_log"
+    label_kind: str = "estimator_observation"
+
+    def subset(self, indices: np.ndarray) -> TrajectoryDataset:
+        values = {}
+        for name in (
+            "timestamps", "positions", "velocities", "features",
+            "segment_ids", "accelerations", "ground_truth_positions",
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                values[name] = np.asarray(value)[indices]
+        return replace(self, **values)
+
+
+def trajectory_features(positions, velocities, valid=None, course=None):
+    """Build the same ten features for every data source."""
+    if valid is None:
+        valid = np.ones(len(positions))
+    if course is None:
+        course = np.arctan2(velocities[:, 1], velocities[:, 0])
+    return np.column_stack((
+        positions, velocities, np.linalg.norm(velocities, axis=1),
+        np.sin(course), np.cos(course), np.asarray(valid, dtype=float),
+    ))
 
 
 def _finite(value: Any) -> float | None:
@@ -63,66 +109,39 @@ def _finite(value: Any) -> float | None:
     return result
 
 
-def _extract_position_records(
-    evidence: NormalizedEvidence,
-) -> list[tuple[float, float, float, float]]:
-    """
-    Extract timestamped global positions.
+def _position_records_with_segments(evidence):
+    def collect(records, navigation):
+        result, segment, previous_invalid = [], 0, False
+        previous_resets = (None, None)
+        for record in records:
+            values = tuple(_finite(value) for value in
+                           (record.timestamp, record.latitude, record.longitude, record.altitude_m))
+            timestamp, latitude, longitude, altitude = values
+            valid = all(value is not None for value in values)
+            valid &= latitude is not None and -90 <= latitude <= 90
+            valid &= longitude is not None and -180 <= longitude <= 180
+            if navigation:
+                valid &= record.latitude_longitude_valid is not False and record.altitude_valid is not False
+                resets = (record.latitude_longitude_reset_counter, record.altitude_reset_counter)
+            else:
+                valid &= record.fix_type is None or record.fix_type >= 3
+                resets = (None, None)
+            changed = any(old is not None and new is not None and old != new
+                          for old, new in zip(previous_resets, resets))
+            if previous_invalid or changed:
+                segment += 1
+            previous_resets = tuple(new if new is not None else old
+                                    for old, new in zip(previous_resets, resets))
+            previous_invalid = not valid
+            if valid:
+                result.append((timestamp, latitude, longitude, altitude, segment))
+        return result
+    # Preserve source order so a reversed clock remains a visible boundary.
+    return collect(evidence.navigation, True) or collect(evidence.gps, False)
 
-    Navigation records are preferred because they are part of the
-    normalized navigation schema. GPS records are used as fallback.
-    """
 
-    navigation = []
-
-    for record in evidence.navigation:
-        lat = _finite(record.latitude)
-        lon = _finite(record.longitude)
-        alt = _finite(record.altitude_m)
-
-        if lat is None or lon is None or alt is None:
-            continue
-
-        if record.latitude_longitude_valid is False:
-            continue
-
-        navigation.append(
-            (
-                float(record.timestamp),
-                lat,
-                lon,
-                alt,
-            )
-        )
-
-    if navigation:
-        navigation.sort(key=lambda item: item[0])
-        return navigation
-
-    gps = []
-
-    for record in evidence.gps:
-        lat = _finite(record.latitude)
-        lon = _finite(record.longitude)
-        alt = _finite(record.altitude_m)
-
-        if lat is None or lon is None or alt is None:
-            continue
-
-        if record.fix_type is not None and record.fix_type <= 0:
-            continue
-
-        gps.append(
-            (
-                float(record.timestamp),
-                lat,
-                lon,
-                alt,
-            )
-        )
-
-    gps.sort(key=lambda item: item[0])
-    return gps
+def _extract_position_records(evidence):
+    return [record[:4] for record in _position_records_with_segments(evidence)]
 
 
 def _latlon_to_local_metric(
@@ -166,88 +185,23 @@ def _latlon_to_local_metric(
     return np.column_stack((x, y, z))
 
 
-def _derive_velocity(
-    timestamps: np.ndarray,
-    positions: np.ndarray,
-) -> np.ndarray:
-    """Derive velocity from metric position observations."""
-
-    if len(positions) == 0:
-        return np.empty((0, 3), dtype=float)
-
-    if len(positions) == 1:
-        return np.zeros((1, 3), dtype=float)
-
+def _derive_velocity(timestamps, positions, segment_ids=None, max_gap_s=None):
+    """Backward differences only, never across a gap or reset."""
     velocity = np.zeros_like(positions, dtype=float)
-
+    if len(positions) < 2:
+        return velocity
     dt = np.diff(timestamps)
-
-    valid = dt > 0
-
-    velocity[1:][valid] = (
-        positions[1:][valid] - positions[:-1][valid]
-    ) / dt[valid, None]
-
-    # Use the first valid derivative for the first sample.
-    first_valid = np.flatnonzero(valid)
-
-    if len(first_valid):
-        velocity[0] = velocity[first_valid[0] + 1]
-
-    # Invalid/repeated timestamps remain zero.
+    if max_gap_s is None:
+        # Adapt to sparse sources using only timing observed so far. A
+        # whole-flight median would let later sampling alter past features.
+        cadence = np.minimum.accumulate(np.where(np.isfinite(dt) & (dt > 0), dt, np.inf))
+        max_gap_s = np.maximum(0.25, 2.5 * cadence)
+    valid = np.isfinite(dt) & (dt > 0) & (dt <= max_gap_s)
+    if segment_ids is not None:
+        valid &= np.diff(segment_ids) == 0
+    velocity[1:][valid] = np.diff(positions, axis=0)[valid] / dt[valid, None]
     velocity[~np.isfinite(velocity)] = 0.0
-
     return velocity
-
-
-def _nearest_gps_attributes(
-    evidence: NormalizedEvidence,
-    timestamps: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Attach nearest normalized GPS speed and heading."""
-
-    speeds = np.full(len(timestamps), np.nan, dtype=float)
-    headings = np.full(len(timestamps), np.nan, dtype=float)
-
-    records = []
-
-    for record in evidence.gps:
-        if record.speed_m_s is None and record.heading_deg is None:
-            continue
-
-        records.append(
-            (
-                float(record.timestamp),
-                _finite(record.speed_m_s),
-                _finite(record.heading_deg),
-            )
-        )
-
-    if not records:
-        return speeds, headings
-
-    records.sort(key=lambda item: item[0])
-
-    record_times = np.asarray(
-        [item[0] for item in records],
-        dtype=float,
-    )
-
-    for index, timestamp in enumerate(timestamps):
-        nearest = int(
-            np.argmin(np.abs(record_times - timestamp))
-        )
-
-        speed = records[nearest][1]
-        heading = records[nearest][2]
-
-        if speed is not None:
-            speeds[index] = speed
-
-        if heading is not None:
-            headings[index] = heading
-
-    return speeds, headings
 
 
 def _build_from_native_trajectory(
@@ -277,9 +231,6 @@ def _build_from_native_trajectory(
             "No native normalized trajectory observations are available."
         )
 
-    records.sort(
-        key=lambda record: float(record.timestamp)
-    )
 
     timestamps = []
     positions = []
@@ -290,6 +241,7 @@ def _build_from_native_trajectory(
 
     previous_position_reset = None
     previous_vertical_reset = None
+    previous_invalid = False
 
     segment_ids = []
     segment = 0
@@ -301,33 +253,23 @@ def _build_from_native_trajectory(
         if timestamp is None:
             continue
 
-        # A change in the vertical reset counter represents a new local
-        # vertical reference. This is deliberately stricter than reacting
-        # to velocity-reset changes, because velocity resets alone should
-        # not split a physically continuous trajectory.
-        vertical_reset = getattr(
-            record,
-            "vertical_reset_counter",
-            None,
-        )
-
-        if (
-            previous_vertical_reset is not None
-            and vertical_reset is not None
+        if getattr(record, "coordinate_frame", "ENU") != "ENU":
+            raise ValueError("Native trajectory adapters must supply ENU coordinates.")
+        vertical_reset = record.vertical_reset_counter
+        position_reset = record.position_reset_counter
+        if previous_invalid or (
+            previous_vertical_reset is not None and vertical_reset is not None
             and vertical_reset != previous_vertical_reset
+        ) or (
+            previous_position_reset is not None and position_reset is not None
+            and position_reset != previous_position_reset
         ):
             segment += 1
-
-        previous_vertical_reset = vertical_reset
-
-        # A position-reset counter can change without an immediate
-        # discontinuity. Keep the reset information in the normalized
-        # record, but do not split solely on XY reset changes.
-        previous_position_reset = getattr(
-            record,
-            "position_reset_counter",
-            previous_position_reset,
-        )
+        if vertical_reset is not None:
+            previous_vertical_reset = vertical_reset
+        if position_reset is not None:
+            previous_position_reset = position_reset
+        previous_invalid = not record.position_valid
 
         x = _finite(record.x_m)
         y = _finite(record.y_m)
@@ -387,6 +329,7 @@ def _build_from_native_trajectory(
             )
         )
 
+        previous_invalid |= not all(value is not None for value in (x, y, z))
         segment_ids.append(segment)
 
     timestamps = np.asarray(
@@ -461,6 +404,7 @@ def _build_from_native_trajectory(
         derived = _derive_velocity(
             timestamps,
             positions,
+            segment_ids,
         )
 
         velocities = np.where(
@@ -499,7 +443,7 @@ def _build_from_global_navigation(
     derived source rather than native state.
     """
 
-    records = _extract_position_records(evidence)
+    records = _position_records_with_segments(evidence)
 
     if not records:
         raise ValueError(
@@ -532,19 +476,12 @@ def _build_from_global_navigation(
         altitude,
     )
 
-    velocities = _derive_velocity(
-        timestamps,
-        positions,
-    )
+    segment_ids = np.asarray([item[4] for item in records], dtype=int)
+    velocities = _derive_velocity(timestamps, positions, segment_ids)
 
     accelerations = np.zeros_like(
         positions,
         dtype=float,
-    )
-
-    segment_ids = np.zeros(
-        len(timestamps),
-        dtype=int,
     )
 
     position_valid = np.ones(
@@ -596,7 +533,12 @@ def build_trajectory_dataset(
         [],
     )
 
-    if native:
+    native_usable = any(
+        record.position_valid and all(_finite(value) is not None for value in
+                                      (record.timestamp, record.x_m, record.y_m, record.z_m))
+        for record in native
+    )
+    if native_usable:
         (
             timestamps,
             positions,
@@ -628,113 +570,16 @@ def build_trajectory_dataset(
             "Trajectory construction produced no usable samples."
         )
 
-    gps_speeds, gps_headings = (
-        _nearest_gps_attributes(
-            evidence,
-            timestamps,
-        )
+    features = trajectory_features(positions, velocities, position_valid)
+    origin = {"kind": "source_estimator_local_origin"}
+    if source == "derived":
+        _, latitude, longitude, altitude = _extract_position_records(evidence)[0]
+        origin = {"kind": "first_geodetic_observation", "latitude_deg": latitude,
+                  "longitude_deg": longitude, "altitude_m": altitude}
+    return TrajectoryDataset(
+        timestamps=timestamps, positions=positions, velocities=velocities,
+        features=features, feature_names=FEATURE_NAMES.copy(),
+        segment_ids=segment_ids, accelerations=accelerations,
+        trajectory_source=source,
+        coordinate_origin=origin, source_platform=evidence.metadata.platform,
     )
-
-    speed = np.linalg.norm(
-        velocities,
-        axis=1,
-    )
-
-    # Prefer normalized GPS heading where available. Otherwise derive
-    # heading from horizontal native/derived velocity.
-    heading_rad = np.radians(
-        gps_headings
-    )
-
-    velocity_heading = np.arctan2(
-        velocities[:, 1],
-        velocities[:, 0],
-    )
-
-    heading_rad = np.where(
-        np.isfinite(heading_rad),
-        heading_rad,
-        velocity_heading,
-    )
-
-    # GPS speed is retained where present, but native/derived metric
-    # velocity is the canonical trajectory speed.
-    speed = np.where(
-        np.isfinite(speed),
-        speed,
-        gps_speeds,
-    )
-
-    speed = np.nan_to_num(
-        speed,
-        nan=0.0,
-        posinf=0.0,
-        neginf=0.0,
-    )
-
-    heading_sin = np.sin(
-        heading_rad
-    )
-
-    heading_cos = np.cos(
-        heading_rad
-    )
-
-    heading_sin = np.nan_to_num(
-        heading_sin,
-        nan=0.0,
-    )
-
-    heading_cos = np.nan_to_num(
-        heading_cos,
-        nan=1.0,
-    )
-
-    # Position validity is represented numerically for compatibility
-    # with the existing ML feature interface.
-    position_valid_feature = (
-        position_valid.astype(float)
-    )
-
-    features = np.column_stack(
-        (
-            positions,
-            velocities,
-            speed,
-            heading_sin,
-            heading_cos,
-            position_valid_feature,
-        )
-    )
-
-    feature_names = [
-        "x_m",
-        "y_m",
-        "z_m",
-        "vx_m_s",
-        "vy_m_s",
-        "vz_m_s",
-        "speed_m_s",
-        "heading_sin",
-        "heading_cos",
-        "position_valid",
-    ]
-
-    # Attach provenance/segment information without changing the existing
-    # five-field public TrajectoryDataset constructor.
-    dataset = TrajectoryDataset(
-        timestamps=timestamps,
-        positions=positions,
-        velocities=velocities,
-        features=features,
-        feature_names=feature_names,
-    )
-
-    # These attributes are intentionally additive so existing trainer code
-    # remains compatible.
-    dataset.segment_ids = segment_ids
-    dataset.accelerations = accelerations
-    dataset.trajectory_source = source
-
-    return dataset
-
