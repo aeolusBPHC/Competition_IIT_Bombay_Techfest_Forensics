@@ -1,0 +1,24 @@
+	
+train	
+0	
+path	"../../repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg"
+flight_id	"CASE-001-flight"
+mission	"CASE-001"
+platform	"PX4"
+
+validation	
+0	
+path	"../../repository/cases/CASE-003/raw/px4_sitl_qgc_mission.ulg"
+flight_id	"CASE-003-sitl"
+mission	"CASE-003"
+platform	"PX4"
+
+test	
+0	
+path	"../../repository/cases/CASE-004/22_43_32.ulg"
+flight_id	"CASE-004-flight"
+mission	"CASE-004"
+platform	"PX4"
+test
+0
+flight_id
