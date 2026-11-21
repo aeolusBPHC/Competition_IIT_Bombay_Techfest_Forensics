@@ -60,31 +60,9 @@ def build_windows_for_range(
     lies inside the requested chronological range.
     """
 
-    timestamps = dataset.timestamps
-
-    mask = (
-        (timestamps >= start_time)
-        & (timestamps <= end_time)
-    )
-
-    indices = np.flatnonzero(mask)
-
-    if len(indices) == 0:
-        return None
-
-    sub_dataset = type(dataset)(
-        timestamps=timestamps[indices],
-        positions=dataset.positions[indices],
-        velocities=dataset.velocities[indices],
-        features=dataset.features[indices],
-        feature_names=dataset.feature_names,
-    )
-
-    return make_trajectory_windows(
-        sub_dataset,
-        history_steps=history_steps,
-        prediction_steps=prediction_steps,
-        interval_s=interval_s,
+    from ml.trajectory_dataset import chronological_windows
+    return chronological_windows(
+        dataset, start_time, end_time, history_steps, prediction_steps, interval_s,
     )
 
 
