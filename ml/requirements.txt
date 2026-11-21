@@ -1,0 +1,7 @@
+# Direct dependencies used for ML validation with Python 3.12.3.
+# Run provenance records the actual runtime versions and source hashes.
+numpy==2.5.3
+torch==2.14.0
+pyulog==1.2.4
+pymavlink==2.4.50
+pytest==9.1.1
