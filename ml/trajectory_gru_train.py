@@ -1,1372 +1,285 @@
+"""Train, validate, and benchmark trajectory models with a reproducible contract."""
 from __future__ import annotations
 
 import argparse
-import json
-import random
+from dataclasses import asdict
 from pathlib import Path
+import random
 
 import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from ml.trajectory_features import build_trajectory_dataset
-from ml.trajectory_dataset import make_trajectory_windows
-from ml.synthetic_trajectory_dataset import load_synthetic_split
-from ml.trajectory_baseline import (
-    constant_velocity_predict,
-    constant_acceleration_predict,
-    average_displacement_error,
-    final_displacement_error,
+from ml.trajectory_baseline import constant_acceleration_predict, constant_velocity_predict
+from ml.trajectory_data import load_training_data, combine_blocks, window_block
+from ml.trajectory_dataset import chronological_split, chronological_windows, make_trajectory_windows
+from ml.trajectory_evaluation import (
+    MODEL_NAMES, classify_windows, evaluate_predictions, evaluate_subset, metric_block,
+    grouped_metrics, summarize_runs,
 )
+from ml.trajectory_features import COORDINATE_FRAME, FEATURE_CONTRACT_VERSION, FEATURE_NAMES
 from ml.trajectory_gru import TrajectoryGRU
-
-from platform_parsers.common.registry import ParserRegistry
+from ml.trajectory_preprocessing import Standardizer, WindowTransform
+from ml.trajectory_provenance import ensure_distinct_outputs, file_hash, runtime_provenance, verify_source_hashes, write_json
 
 
 SEED = 42
 
 
-def set_seed(seed: int = SEED) -> None:
+def set_seed(seed=SEED):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(True)
 
 
-def parse_evidence(input_path: str):
-    registry = ParserRegistry()
-    parser = registry.get_parser(input_path)
-    return parser.parse()
+def parse_evidence(input_path):
+    from platform_parsers.common.registry import ParserRegistry
+    return ParserRegistry().get_parser(input_path).parse()
 
 
-def chronological_windows(
-    trajectory,
-    start_time: float,
-    end_time: float,
-    history_steps: int,
-    prediction_steps: int,
-    interval_s: float,
-    target_mode: str = "absolute",
-):
-    """
-    Restrict the trajectory to a chronological interval before
-    constructing windows. This prevents windows from crossing
-    train/validation/test boundaries.
-    """
-    # Use half-open intervals to prevent the boundary sample
-    # from appearing in two chronological splits.
-    #
-    # Train:      [start, end)
-    # Validation: [start, end)
-    # Test:       [start, end]
-    #
-    # The final test endpoint is retained because it is the end
-    # of the complete recorded trajectory.
-    if end_time >= float(trajectory.timestamps[-1]):
-        mask = (
-            (trajectory.timestamps >= start_time)
-            & (trajectory.timestamps <= end_time)
-        )
-    else:
-        mask = (
-            (trajectory.timestamps >= start_time)
-            & (trajectory.timestamps < end_time)
-        )
-
-    indices = np.flatnonzero(mask)
-
-    if len(indices) == 0:
-        raise ValueError(
-            f"No trajectory samples in [{start_time}, {end_time}]"
-        )
-
-    subset = type(trajectory)(
-        timestamps=trajectory.timestamps[indices],
-        positions=trajectory.positions[indices],
-        velocities=trajectory.velocities[indices],
-        features=trajectory.features[indices],
-        feature_names=trajectory.feature_names,
-    )
-
-    # Preserve optional trajectory metadata such as native reset
-    # segments and acceleration. The ML windowing layer remains
-    # platform independent and simply consumes these arrays when
-    # available.
-    for name in (
-        "segment_ids",
-        "accelerations",
-    ):
-        values = getattr(
-            trajectory,
-            name,
-            None,
-        )
-
-        if values is not None:
-            setattr(
-                subset,
-                name,
-                np.asarray(values)[indices],
-            )
-
-    return make_trajectory_windows(
-        subset,
-        history_steps=history_steps,
-        prediction_steps=prediction_steps,
-        interval_s=interval_s,
-        target_mode=target_mode,
-    )
+def build_synthetic_windows(root, split_name, history_steps, prediction_steps, interval_s, target_mode):
+    from ml.synthetic_trajectory_dataset import load_synthetic_split
+    return combine_blocks([
+        window_block(make_trajectory_windows(dataset, history_steps, prediction_steps,
+                                            interval_s, target_mode), dataset,
+                     {"flight_id": dataset.trajectory_id, "platform": "synthetic"})
+        for dataset in load_synthetic_split(root, split_name)
+    ])
 
 
-def build_synthetic_windows(
-    root,
-    split_name,
-    history_steps,
-    prediction_steps,
-    interval_s,
-    target_mode,
-):
-    """
-    Build windows independently for every synthetic trajectory.
-
-    Windows never cross trajectory boundaries.
-    """
-
-    trajectories = load_synthetic_split(
-        root,
-        split_name,
-    )
-
-    if not trajectories:
-        raise ValueError(
-            f"No synthetic trajectories found for split '{split_name}'."
-        )
-
-    all_X = []
-    all_y = []
-    all_input_times = []
-    all_target_times = []
-    all_scenarios = []
-    trajectory_ids = []
-
-    for trajectory in trajectories:
-        window_data = make_trajectory_windows(
-            trajectory,
-            history_steps=history_steps,
-            prediction_steps=prediction_steps,
-            interval_s=interval_s,
-            target_mode=target_mode,
-        )
-
-        all_X.append(window_data.X)
-        all_y.append(window_data.y)
-        all_input_times.append(
-            window_data.input_timestamps
-        )
-        all_target_times.append(
-            window_data.target_timestamps
-        )
-
-        all_scenarios.extend(
-            [trajectory.scenario] * len(window_data.X)
-        )
-
-        trajectory_ids.extend(
-            [trajectory.trajectory_id] * len(window_data.X)
-        )
-
-    return {
-        "X": np.concatenate(all_X, axis=0),
-        "y": np.concatenate(all_y, axis=0),
-        "input_times": np.concatenate(
-            all_input_times,
-            axis=0,
-        ),
-        "target_times": np.concatenate(
-            all_target_times,
-            axis=0,
-        ),
-        "scenarios": np.asarray(
-            all_scenarios,
-            dtype=object,
-        ),
-        "trajectory_ids": np.asarray(
-            trajectory_ids,
-            dtype=object,
-        ),
-        "trajectory_count": len(trajectories),
-    }
+def synthetic_scenario_metrics(predicted, actual, scenarios):
+    return grouped_metrics(predicted, actual, scenarios)
 
 
-def synthetic_scenario_metrics(
-    predicted,
-    actual,
-    scenarios,
-):
-    """
-    Evaluate synthetic test predictions separately by scenario.
-    """
-
-    results = {}
-
-    for scenario in sorted(set(scenarios.tolist())):
-        mask = scenarios == scenario
-
-        results[scenario] = {
-            "window_count": int(np.sum(mask)),
-            **metric_block(
-                predicted[mask],
-                actual[mask],
-            ),
-        }
-
-    return results
-
-
-def chronological_split(
-    trajectory,
-    train_ratio: float = 0.70,
-    validation_ratio: float = 0.15,
-):
-    start = float(trajectory.timestamps[0])
-    end = float(trajectory.timestamps[-1])
-    duration = end - start
-
-    train_end = start + duration * train_ratio
-    validation_end = start + duration * (
-        train_ratio + validation_ratio
-    )
-
-    return {
-        "train": (start, train_end),
-        "validation": (train_end, validation_end),
-        "test": (validation_end, end),
-    }
-
-
-class Standardizer:
-    """
-    Simple NumPy standardization.
-
-    Statistics are fitted only on training data.
-    """
-
-    def __init__(self):
-        self.mean_: np.ndarray | None = None
-        self.std_: np.ndarray | None = None
-
-    def fit(self, values: np.ndarray) -> None:
-        flat = values.reshape(-1, values.shape[-1])
-
-        self.mean_ = np.mean(flat, axis=0)
-        self.std_ = np.std(flat, axis=0)
-
-        # Avoid division by zero for constant features.
-        self.std_[self.std_ < 1e-8] = 1.0
-
-    def transform(self, values: np.ndarray) -> np.ndarray:
-        if self.mean_ is None or self.std_ is None:
-            raise RuntimeError("Standardizer has not been fitted.")
-
-        return (values - self.mean_) / self.std_
-
-    def inverse_transform(self, values: np.ndarray) -> np.ndarray:
-        if self.mean_ is None or self.std_ is None:
-            raise RuntimeError("Standardizer has not been fitted.")
-
-        return values * self.std_ + self.mean_
-
-    def to_dict(self):
-        return {
-            "mean": self.mean_.tolist(),
-            "std": self.std_.tolist(),
-        }
-
-
-def torch_loader(
-    X: np.ndarray,
-    y: np.ndarray,
-    batch_size: int,
-    shuffle: bool,
-):
-    dataset = TensorDataset(
-        torch.from_numpy(X.astype(np.float32)),
-        torch.from_numpy(y.astype(np.float32)),
-    )
-
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=0,
-    )
+def torch_loader(X, y, batch_size, shuffle):
+    return DataLoader(TensorDataset(torch.from_numpy(X.astype(np.float32)),
+                                   torch.from_numpy(y.astype(np.float32))),
+                      batch_size=batch_size, shuffle=shuffle, num_workers=0)
 
 
 def train_epoch(model, loader, optimizer, criterion, device):
     model.train()
-
-    total_loss = 0.0
-    count = 0
-
-    for X_batch, y_batch in loader:
-        X_batch = X_batch.to(device)
-        y_batch = y_batch.to(device)
-
+    total, count = 0.0, 0
+    for X, y in loader:
+        X, y = X.to(device), y.to(device)
         optimizer.zero_grad()
-
-        prediction = model(X_batch)
-
-        loss = criterion(prediction, y_batch)
-
+        loss = criterion(model(X), y)
+        if not torch.isfinite(loss):
+            raise ValueError("Non-finite training loss; check data and normalization.")
         loss.backward()
-
-        # Helps stabilize recurrent training.
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-
-        batch_size = X_batch.shape[0]
-
-        total_loss += loss.item() * batch_size
-        count += batch_size
-
-    return total_loss / count
+        total += loss.item() * len(X)
+        count += len(X)
+    return total / count
 
 
 @torch.no_grad()
 def validation_loss(model, loader, criterion, device):
     model.eval()
-
-    total_loss = 0.0
-    count = 0
-
-    for X_batch, y_batch in loader:
-        X_batch = X_batch.to(device)
-        y_batch = y_batch.to(device)
-
-        prediction = model(X_batch)
-        loss = criterion(prediction, y_batch)
-
-        batch_size = X_batch.shape[0]
-
-        total_loss += loss.item() * batch_size
-        count += batch_size
-
-    return total_loss / count
+    total, count = 0.0, 0
+    for X, y in loader:
+        loss = criterion(model(X.to(device)), y.to(device))
+        total += loss.item() * len(X)
+        count += len(X)
+    return total / count
 
 
 @torch.no_grad()
 def predict_model(model, X, device, batch_size=512):
     model.eval()
-
     outputs = []
-
-    loader = DataLoader(
-        TensorDataset(
-            torch.from_numpy(X.astype(np.float32)),
-        ),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=0,
-    )
-
-    for (X_batch,) in loader:
-        X_batch = X_batch.to(device)
-        prediction = model(X_batch)
-        outputs.append(prediction.cpu().numpy())
-
-    return np.concatenate(outputs, axis=0)
+    for start in range(0, len(X), batch_size):
+        values = torch.from_numpy(X[start:start + batch_size].astype(np.float32)).to(device)
+        outputs.append(model(values).cpu().numpy())
+    return np.concatenate(outputs)
 
 
-def reconstruct_absolute_positions(
-    displacements: np.ndarray,
-    X: np.ndarray,
-) -> np.ndarray:
-    """
-    Convert relative trajectory predictions back to absolute
-    x/y/z positions.
-
-    Parameters
-    ----------
-    displacements:
-        Array with shape (samples, prediction_steps, 3).
-
-    X:
-        Input history with shape
-        (samples, history_steps, features).
-
-    Returns
-    -------
-    np.ndarray
-        Absolute positions with shape
-        (samples, prediction_steps, 3).
-    """
-
-    last_observed_position = X[:, -1, :3]
-
-    return (
-        displacements
-        + last_observed_position[:, None, :]
-    )
+def reconstruct_absolute_positions(displacements, X):
+    return displacements + X[:, -1:, :3]
 
 
 def horizon_errors(predicted, actual):
-    errors = np.linalg.norm(
-        predicted - actual,
-        axis=2,
-    )
-
-    return np.mean(errors, axis=0)
-
-
-def metric_block(predicted, actual):
-    return {
-        "ade_m": float(average_displacement_error(predicted, actual)),
-        "fde_m": float(final_displacement_error(predicted, actual)),
-    }
-
-
-def classify_windows(X_original, feature_count: int):
-    """
-    Classify windows using only the observed history.
-
-    Feature layout:
-        0 x
-        1 y
-        2 z
-        3 vx
-        4 vy
-        5 vz
-        6 speed
-        7 heading_sin
-        8 heading_cos
-        9 position_valid
-    """
-
-    speed_index = 6
-
-    history_speed = X_original[:, :, speed_index]
-
-    mean_speed = np.mean(history_speed, axis=1)
-
-    stationary = mean_speed < 0.1
-    moving = mean_speed >= 0.5
-    intermediate = ~(stationary | moving)
-
-    return {
-        "stationary": stationary,
-        "moving": moving,
-        "intermediate": intermediate,
-    }
-
-
-def evaluate_subset(predicted, actual, mask):
-    if not np.any(mask):
-        return {
-            "window_count": 0,
-            "ade_m": None,
-            "fde_m": None,
-        }
-
-    return {
-        "window_count": int(np.sum(mask)),
-        **metric_block(
-            predicted[mask],
-            actual[mask],
-        ),
-    }
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Train and benchmark a GRU trajectory predictor."
-    )
-
-    parser.add_argument(
-        "--input",
-        required=False,
-        help="Platform evidence input for real-log training.",
-    )
-
-    parser.add_argument(
-        "--synthetic-root",
-        required=False,
-        help=(
-            "Synthetic trajectory dataset root. "
-            "When provided, train/validation/test trajectories "
-            "are loaded from this directory."
-        ),
-    )
-
-    parser.add_argument(
-        "--case-id",
-        required=True,
-    )
-
-    parser.add_argument(
-        "--output",
-        required=True,
-        help="JSON benchmark output.",
-    )
-
-    parser.add_argument(
-        "--model-output",
-        required=True,
-        help="PyTorch model checkpoint.",
-    )
-
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=40,
-    )
-
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=128,
-    )
-
-    parser.add_argument(
-        "--hidden-size",
-        type=int,
-        default=64,
-    )
-
-    parser.add_argument(
-        "--layers",
-        type=int,
-        default=2,
-    )
-
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=1e-3,
-    )
-
-    parser.add_argument(
-        "--patience",
-        type=int,
-        default=7,
-    )
-
-    parser.add_argument(
-        "--target-mode",
-        choices=("absolute", "relative"),
-        default="absolute",
-        help=(
-            "Trajectory prediction target representation. "
-            "'absolute' predicts future positions; "
-            "'relative' predicts displacement from the "
-            "last observed position."
-        ),
-    )
-
-    args = parser.parse_args()
-
-    set_seed()
-
-    device = torch.device("cpu")
-
-    print("=" * 72)
-    print("GRU TRAJECTORY PREDICTION")
-    print("=" * 72)
-    print(f"Device:              {device}")
-    print(f"PyTorch:             {torch.__version__}")
-    print(
-        f"Input:               "
-        f"{args.input if args.input else 'synthetic dataset'}"
-    )
-    print(f"Case:                {args.case_id}")
-    print(f"Target mode:         {args.target_mode}")
-
-    if args.input and args.synthetic_root:
-        raise ValueError(
-            "Use either --input or --synthetic-root, not both."
-        )
-
-    if not args.input and not args.synthetic_root:
-        raise ValueError(
-            "One of --input or --synthetic-root is required."
-        )
-    print()
-
-    # ------------------------------------------------------------
-    # 1-3. Load data and build train/validation/test windows
-    # ------------------------------------------------------------
-
-    history_steps = 20
-    prediction_steps = 10
-    interval_s = 0.1
-
-    synthetic_mode = args.synthetic_root is not None
-
-    if synthetic_mode:
-        print("Dataset mode:       SYNTHETIC")
-        print(f"Synthetic root:     {args.synthetic_root}")
-        print()
-
-        windows = {}
-
-        for name in (
-            "train",
-            "validation",
-            "test",
-        ):
-            windows[name] = build_synthetic_windows(
-                args.synthetic_root,
-                name,
-                history_steps,
-                prediction_steps,
-                interval_s,
-                args.target_mode,
-            )
-
-            print(
-                f"{name.upper():12s} "
-                f"trajectories="
-                f"{windows[name]['trajectory_count']:3d} "
-                f"X={windows[name]['X'].shape} "
-                f"y={windows[name]['y'].shape}"
-            )
-
-        print()
-
-        trajectory = None
-
-        train_trajectories = load_synthetic_split(
-            args.synthetic_root,
-            "train",
-        )
-        validation_trajectories = load_synthetic_split(
-            args.synthetic_root,
-            "validation",
-        )
-        test_trajectories = load_synthetic_split(
-            args.synthetic_root,
-            "test",
-        )
-
-        all_trajectories = (
-            train_trajectories
-            + validation_trajectories
-            + test_trajectories
-        )
-
-        total_points = sum(
-            len(t.timestamps)
-            for t in all_trajectories
-        )
-
-        dataset_start = min(
-            float(t.timestamps[0])
-            for t in all_trajectories
-        )
-
-        dataset_end = max(
-            float(t.timestamps[-1])
-            for t in all_trajectories
-        )
-
-        trajectory_summary = {
-            "trajectory_count": len(all_trajectories),
-            "points": total_points,
-            "start_time_s": dataset_start,
-            "end_time_s": dataset_end,
-            "duration_s": dataset_end - dataset_start,
-        }
-
-        split = {
-            "train": {
-                "trajectory_count":
-                    windows["train"]["trajectory_count"],
-                "window_count":
-                    len(windows["train"]["X"]),
-            },
-            "validation": {
-                "trajectory_count":
-                    windows["validation"]["trajectory_count"],
-                "window_count":
-                    len(windows["validation"]["X"]),
-            },
-            "test": {
-                "trajectory_count":
-                    windows["test"]["trajectory_count"],
-                "window_count":
-                    len(windows["test"]["X"]),
-            },
-        }
-
-    else:
-        print("Dataset mode:       REAL PLATFORM LOG")
-        print()
-
-        # --------------------------------------------------------
-        # 1. Parse evidence
-        # --------------------------------------------------------
-
-        evidence = parse_evidence(args.input)
-
-        trajectory = build_trajectory_dataset(evidence)
-
-        print("Trajectory:")
-        print(
-            f"  Points:             "
-            f"{len(trajectory.timestamps):,}"
-        )
-        print(
-            f"  Start:              "
-            f"{trajectory.timestamps[0]:.3f} s"
-        )
-        print(
-            f"  End:                "
-            f"{trajectory.timestamps[-1]:.3f} s"
-        )
-        print(
-            f"  Duration:           "
-            f"{trajectory.timestamps[-1] - trajectory.timestamps[0]:.3f} s"
-        )
-        print()
-
-        trajectory_summary = {
-            "trajectory_count": 1,
-            "points": len(trajectory.timestamps),
-            "start_time_s": float(
-                trajectory.timestamps[0]
-            ),
-            "end_time_s": float(
-                trajectory.timestamps[-1]
-            ),
-            "duration_s": float(
-                trajectory.timestamps[-1]
-                - trajectory.timestamps[0]
-            ),
-        }
-
-        # --------------------------------------------------------
-        # 2. Chronological split
-        # --------------------------------------------------------
-
-        split = chronological_split(trajectory)
-
-        print("Chronological split:")
-        for name, (start, end) in split.items():
-            print(
-                f"  {name.upper():12s} "
-                f"{start:.3f} -> {end:.3f} s"
-            )
-        print()
-
-        # --------------------------------------------------------
-        # 3. Build windows
-        # --------------------------------------------------------
-
-        windows = {}
-
-        for name, (start, end) in split.items():
-            window_data = chronological_windows(
-                trajectory,
-                start,
-                end,
-                history_steps,
-                prediction_steps,
-                interval_s,
-                target_mode=args.target_mode,
-            )
-
-            windows[name] = {
-                "X": window_data.X,
-                "y": window_data.y,
-                "input_times":
-                    window_data.input_timestamps,
-                "target_times":
-                    window_data.target_timestamps,
-            }
-
-            print(
-                f"{name.upper():12s} "
-                f"X={window_data.X.shape} "
-                f"y={window_data.y.shape}"
-            )
-
-        print()
-
-    X_train = windows["train"]["X"]
-    y_train = windows["train"]["y"]
-
-    X_val = windows["validation"]["X"]
-    y_val = windows["validation"]["y"]
-
-    X_test = windows["test"]["X"]
-    y_test = windows["test"]["y"]
-
-    # ------------------------------------------------------------
-    # 4. Fit normalization ONLY on training data
-    # ------------------------------------------------------------
-
-    feature_scaler = Standardizer()
-    feature_scaler.fit(X_train)
-
-    target_scaler = Standardizer()
-    target_scaler.fit(y_train)
-
-    X_train_scaled = feature_scaler.transform(X_train)
-    X_val_scaled = feature_scaler.transform(X_val)
-    X_test_scaled = feature_scaler.transform(X_test)
-
-    y_train_scaled = target_scaler.transform(y_train)
-    y_val_scaled = target_scaler.transform(y_val)
-
-    # ------------------------------------------------------------
-    # 5. DataLoaders
-    # ------------------------------------------------------------
-
-    train_loader = torch_loader(
-        X_train_scaled,
-        y_train_scaled,
-        args.batch_size,
-        shuffle=True,
-    )
-
-    val_loader = torch_loader(
-        X_val_scaled,
-        y_val_scaled,
-        args.batch_size,
-        shuffle=False,
-    )
-
-    # ------------------------------------------------------------
-    # 6. Model
-    # ------------------------------------------------------------
-
-    feature_count = X_train.shape[-1]
-
-    model = TrajectoryGRU(
-        input_size=feature_count,
-        hidden_size=args.hidden_size,
-        num_layers=args.layers,
-        prediction_steps=prediction_steps,
-    ).to(device)
-
-    parameter_count = sum(
-        p.numel()
-        for p in model.parameters()
-        if p.requires_grad
-    )
-
-    print("Model:")
-    print(f"  Input features:     {feature_count}")
-    print(f"  Hidden size:        {args.hidden_size}")
-    print(f"  GRU layers:         {args.layers}")
-    print(f"  Prediction steps:   {prediction_steps}")
-    print(f"  Parameters:         {parameter_count:,}")
-    print()
-
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=args.learning_rate,
-    )
-
+    return np.linalg.norm(predicted - actual, axis=-1).mean(axis=0)
+
+
+def checkpoint_path(path, seed, first_seed):
+    path = Path(path)
+    return path if seed == first_seed else path.with_name(f"{path.stem}.seed-{seed}{path.suffix}")
+
+
+def train_run(args, windows, seed, device, provenance, model_path):
+    set_seed(seed)
+    transform = WindowTransform(args.input_frame, args.target_mode, args.interval)
+    feature_scaler, target_scaler = Standardizer(), Standardizer()
+    train_X = transform.features(windows["train"]["X"])
+    train_y = transform.targets(windows["train"]["y"], windows["train"]["X"])
+    feature_scaler.fit(train_X)
+    target_scaler.fit(train_y)
+    scaled_X = {name: feature_scaler.transform(transform.features(block["X"]))
+                for name, block in windows.items()}
+    train_loader = torch_loader(feature_scaler.transform(train_X), target_scaler.transform(train_y),
+                                args.batch_size, True)
+    val_y = target_scaler.transform(transform.targets(windows["validation"]["y"],
+                                                     windows["validation"]["X"]))
+    val_loader = torch_loader(scaled_X["validation"], val_y, args.batch_size, False)
+    model_config = {"input_size": len(FEATURE_NAMES), "hidden_size": args.hidden_size,
+                    "num_layers": args.layers, "prediction_steps": args.prediction_steps}
+    model = TrajectoryGRU(**model_config).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     criterion = nn.MSELoss()
-
-    # ------------------------------------------------------------
-    # 7. Training
-    # ------------------------------------------------------------
-
-    best_val_loss = float("inf")
-    best_state = None
-    epochs_without_improvement = 0
+    best_loss, best_state, stale, best_epoch = float("inf"), None, 0, None
     history = []
-
-    print("Training:")
-    print("-" * 72)
-
     for epoch in range(1, args.epochs + 1):
-        train_loss = train_epoch(
-            model,
-            train_loader,
-            optimizer,
-            criterion,
-            device,
-        )
-
-        val_loss = validation_loss(
-            model,
-            val_loader,
-            criterion,
-            device,
-        )
-
-        history.append(
-            {
-                "epoch": epoch,
-                "train_loss": float(train_loss),
-                "validation_loss": float(val_loss),
-            }
-        )
-
-        print(
-            f"Epoch {epoch:03d} | "
-            f"train={train_loss:.6f} | "
-            f"validation={val_loss:.6f}"
-        )
-
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_state = {
-                key: value.detach().cpu().clone()
-                for key, value in model.state_dict().items()
-            }
-            epochs_without_improvement = 0
+        loss = train_epoch(model, train_loader, optimizer, criterion, device)
+        val_loss = validation_loss(model, val_loader, criterion, device)
+        if not np.isfinite(val_loss):
+            raise ValueError("Non-finite validation loss.")
+        history.append({"epoch": epoch, "train_loss": loss, "validation_loss": val_loss})
+        print(f"Seed {seed}, epoch {epoch:03d}: train={loss:.6f}, validation={val_loss:.6f}", flush=True)
+        if val_loss < best_loss:
+            best_loss, best_epoch, stale = val_loss, epoch, 0
+            best_state = {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
         else:
-            epochs_without_improvement += 1
-
-        if epochs_without_improvement >= args.patience:
-            print(
-                f"Early stopping after {epoch} epochs."
-            )
+            stale += 1
+        if stale >= args.patience:
             break
-
-    if best_state is None:
-        raise RuntimeError("No best model checkpoint was produced.")
-
     model.load_state_dict(best_state)
-
-    # ------------------------------------------------------------
-    # 8. Save model
-    # ------------------------------------------------------------
-
-    model_path = Path(args.model_output)
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "model_config": {
-                "input_size": feature_count,
-                "hidden_size": args.hidden_size,
-                "num_layers": args.layers,
-                "prediction_steps": prediction_steps,
-                "target_mode": args.target_mode,
-            },
-            "history_steps": history_steps,
-            "interval_s": interval_s,
-            "feature_scaler": feature_scaler.to_dict(),
-            "target_scaler": target_scaler.to_dict(),
-            "seed": SEED,
-        },
-        model_path,
-    )
-
-    print()
-    print(f"Best model saved: {model_path}")
-
-    # ------------------------------------------------------------
-    # 9. Test prediction
-    # ------------------------------------------------------------
-
-    predicted_scaled = predict_model(
-        model,
-        X_test_scaled,
-        device,
-    )
-
-    predicted = target_scaler.inverse_transform(
-        predicted_scaled
-    )
-
-    # ------------------------------------------------------------
-    # 9b. Convert relative predictions back to absolute
-    # ------------------------------------------------------------
-
-    if args.target_mode == "relative":
-        predicted_absolute = reconstruct_absolute_positions(
-            predicted,
-            X_test,
-        )
-
-        actual_absolute = reconstruct_absolute_positions(
-            y_test,
-            X_test,
-        )
-    else:
-        predicted_absolute = predicted
-        actual_absolute = y_test
-
-    # ------------------------------------------------------------
-    # 10. GRU metrics
-    # ------------------------------------------------------------
-
-    overall = metric_block(
-        predicted_absolute,
-        actual_absolute,
-    )
-
-    masks = classify_windows(
-        X_test,
-        feature_count,
-    )
-
-    motion_metrics = {
-        name: evaluate_subset(
-            predicted_absolute,
-            actual_absolute,
-            mask,
-        )
-        for name, mask in masks.items()
-    }
-
-    gru_horizon = horizon_errors(
-        predicted_absolute,
-        actual_absolute,
-    )
-
-    # ------------------------------------------------------------
-    # 11. Physics baselines
-    # ------------------------------------------------------------
-
-    # Constant-velocity baseline
-    constant_velocity_predicted = constant_velocity_predict(
-        X_test,
-        prediction_steps,
-        interval_s,
-    )
-
-    constant_velocity_overall = metric_block(
-        constant_velocity_predicted,
-        actual_absolute,
-    )
-
-    constant_velocity_motion = {
-        name: evaluate_subset(
-            constant_velocity_predicted,
-            actual_absolute,
-            mask,
-        )
-        for name, mask in masks.items()
-    }
-
-    constant_velocity_horizon = horizon_errors(
-        constant_velocity_predicted,
-        actual_absolute,
-    )
-
-    # Constant-acceleration baseline
-    constant_acceleration_predicted = (
-        constant_acceleration_predict(
-            X_test,
-            prediction_steps,
-            interval_s,
-        )
-    )
-
-    constant_acceleration_overall = metric_block(
-        constant_acceleration_predicted,
-        actual_absolute,
-    )
-
-    constant_acceleration_motion = {
-        name: evaluate_subset(
-            constant_acceleration_predicted,
-            actual_absolute,
-            mask,
-        )
-        for name, mask in masks.items()
-    }
-
-    constant_acceleration_horizon = horizon_errors(
-        constant_acceleration_predicted,
-        actual_absolute,
-    )
-
-    scenario_metrics = None
-
-    if synthetic_mode:
-        scenario_metrics = {
-            "gru": synthetic_scenario_metrics(
-                predicted_absolute,
-                actual_absolute,
-                windows["test"]["scenarios"],
-            ),
-            "constant_velocity": synthetic_scenario_metrics(
-                constant_velocity_predicted,
-                actual_absolute,
-                windows["test"]["scenarios"],
-            ),
-            "constant_acceleration": synthetic_scenario_metrics(
-                constant_acceleration_predicted,
-                actual_absolute,
-                windows["test"]["scenarios"],
-            ),
+    metrics = {}
+    for split in ("validation", "test"):
+        block = windows[split]
+        learned = transform.absolute(target_scaler.inverse_transform(
+            predict_model(model, scaled_X[split], device)), block["X"])
+        predictions = {
+            "gru": learned,
+            "constant_velocity": constant_velocity_predict(block["X"], args.prediction_steps, args.interval),
+            "constant_acceleration": constant_acceleration_predict(block["X"], args.prediction_steps, args.interval),
         }
-
-    # ------------------------------------------------------------
-    # 12. Print results
-    # ------------------------------------------------------------
-
-    print()
-    print("=" * 72)
-    print("TEST RESULTS")
-    print("=" * 72)
-
-    print()
-    print("GRU")
-    print(
-        f"  Overall ADE:         {overall['ade_m']:.6f} m"
-    )
-    print(
-        f"  Overall FDE:         {overall['fde_m']:.6f} m"
-    )
-
-    for name, metrics in motion_metrics.items():
-        if metrics["window_count"] == 0:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"no test windows"
-            )
-        else:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"{metrics['ade_m']:.6f} m ADE | "
-                f"{metrics['fde_m']:.6f} m FDE "
-                f"({metrics['window_count']} windows)"
-            )
-
-    print()
-    print("CONSTANT VELOCITY")
-    print(
-        f"  Overall ADE:         "
-        f"{constant_velocity_overall['ade_m']:.6f} m"
-    )
-    print(
-        f"  Overall FDE:         "
-        f"{constant_velocity_overall['fde_m']:.6f} m"
-    )
-
-    for name, metrics in constant_velocity_motion.items():
-        if metrics["window_count"] == 0:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"no test windows"
-            )
-        else:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"{metrics['ade_m']:.6f} m ADE | "
-                f"{metrics['fde_m']:.6f} m FDE "
-                f"({metrics['window_count']} windows)"
-            )
-
-    print()
-    print("CONSTANT ACCELERATION")
-    print(
-        f"  Overall ADE:         "
-        f"{constant_acceleration_overall['ade_m']:.6f} m"
-    )
-    print(
-        f"  Overall FDE:         "
-        f"{constant_acceleration_overall['fde_m']:.6f} m"
-    )
-
-    for name, metrics in constant_acceleration_motion.items():
-        if metrics["window_count"] == 0:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"no test windows"
-            )
-        else:
-            print(
-                f"  {name.capitalize():14s}: "
-                f"{metrics['ade_m']:.6f} m ADE | "
-                f"{metrics['fde_m']:.6f} m FDE "
-                f"({metrics['window_count']} windows)"
-            )
-
-    print()
-    print("HORIZON ERRORS")
-    print("-" * 72)
-    print(
-        f"{'Horizon':>10s} "
-        f"{'GRU ADE':>14s} "
-        f"{'CV ADE':>14s} "
-        f"{'CA ADE':>14s}"
-    )
-
-    for index in range(prediction_steps):
-        horizon = (index + 1) * interval_s
-
-        print(
-            f"{horizon:9.1f}s "
-            f"{gru_horizon[index]:14.6f} "
-            f"{constant_velocity_horizon[index]:14.6f} "
-            f"{constant_acceleration_horizon[index]:14.6f}"
-        )
-
-    if synthetic_mode:
-        print()
-        print("SCENARIO RESULTS")
-        print("-" * 72)
-
-        for scenario in sorted(
-            scenario_metrics["gru"]
-        ):
-            gru_metrics = scenario_metrics[
-                "gru"
-            ][scenario]
-
-            cv_metrics = scenario_metrics[
-                "constant_velocity"
-            ][scenario]
-
-            ca_metrics = scenario_metrics[
-                "constant_acceleration"
-            ][scenario]
-
-            print()
-            print(scenario)
-
-            print(
-                f"  GRU:                  "
-                f"{gru_metrics['ade_m']:.6f} m ADE | "
-                f"{gru_metrics['fde_m']:.6f} m FDE "
-                f"({gru_metrics['window_count']} windows)"
-            )
-
-            print(
-                f"  Constant velocity:    "
-                f"{cv_metrics['ade_m']:.6f} m ADE | "
-                f"{cv_metrics['fde_m']:.6f} m FDE"
-            )
-
-            print(
-                f"  Constant acceleration:"
-                f" {ca_metrics['ade_m']:.6f} m ADE | "
-                f"{ca_metrics['fde_m']:.6f} m FDE"
-            )
-
-    # ------------------------------------------------------------
-    # 13. Save benchmark JSON
-    # ------------------------------------------------------------
-
-
-
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    benchmark = {
-        "schema_version": "1.0",
-        "case_id": args.case_id,
-        "evidence": args.input,
-        "dataset_type": (
-            "synthetic"
-            if synthetic_mode
-            else "platform_log"
-        ),
-        "device": str(device),
-        "seed": SEED,
-        "target_mode": args.target_mode,
-        "model": {
-            "name": "trajectory_gru",
-            "type": "recurrent_neural_network",
-            "hidden_size": args.hidden_size,
-            "num_layers": args.layers,
-            "parameters": parameter_count,
-            "best_validation_loss": float(best_val_loss),
-        },
-        "dataset": {
-            "type": (
-                "synthetic"
-                if synthetic_mode
-                else "platform_log"
-            ),
-            "synthetic_root": (
-                str(args.synthetic_root)
-                if synthetic_mode
-                else None
-            ),
-        },
-        "trajectory": trajectory_summary,
-        "window_configuration": {
-            "history_steps": history_steps,
-            "history_duration_s": history_steps * interval_s,
-            "prediction_steps": prediction_steps,
-            "prediction_horizon_s": prediction_steps * interval_s,
-            "interval_s": interval_s,
-            "feature_count": feature_count,
-            "target_mode": args.target_mode,
-        },
-        "chronological_split": (
-            {
-                name: {
-                    "start_s": float(start),
-                    "end_s": float(end),
-                    "window_count": int(
-                        len(windows[name]["X"])
-                    ),
-                }
-                for name, (start, end) in split.items()
-            }
-            if not synthetic_mode
-            else None
-        ),
-        "trajectory_split": (
-            split
-            if synthetic_mode
-            else None
-        ),
-        "training": {
-            "epochs_requested": args.epochs,
-            "epochs_completed": len(history),
-            "batch_size": args.batch_size,
-            "learning_rate": args.learning_rate,
-            "early_stopping_patience": args.patience,
-            "history": history,
-        },
-        "test": {
-            "window_count": int(len(X_test)),
-            "gru": {
-                "overall": overall,
-                "motion": motion_metrics,
-                "horizon_ade_m": [
-                    float(value)
-                    for value in gru_horizon
-                ],
-            },
-            "constant_velocity": {
-                "overall": constant_velocity_overall,
-                "motion": constant_velocity_motion,
-                "horizon_ade_m": [
-                    float(value)
-                    for value in constant_velocity_horizon
-                ],
-            },
-            "constant_acceleration": {
-                "overall": constant_acceleration_overall,
-                "motion": constant_acceleration_motion,
-                "horizon_ade_m": [
-                    float(value)
-                    for value in constant_acceleration_horizon
-                ],
-            },
-            "scenario": scenario_metrics,
-        },
-        "normalization": {
-            "features": feature_scaler.to_dict(),
-            "targets": target_scaler.to_dict(),
-            "fit_on": "training_windows_only",
-        },
+        metrics[split] = {name: evaluate_predictions(value, block["y"], block)
+                          for name, value in predictions.items()}
+    # The inference default is selected on validation flights only. Test
+    # results do not influence model, baseline, epoch or seed selection.
+    recommended = min(MODEL_NAMES, key=lambda name: metrics["validation"][name]["flight_macro"]["ade_m"])
+    checkpoint = {
+        "checkpoint_schema_version": 2, "feature_contract_version": FEATURE_CONTRACT_VERSION,
+        "coordinate_frame": COORDINATE_FRAME, "feature_names": FEATURE_NAMES.copy(),
+        "model_state_dict": best_state, "model_config": model_config,
+        "history_steps": args.history_steps, "interval_s": args.interval,
+        "preprocessing": asdict(transform), "feature_scaler": feature_scaler.to_dict(),
+        "target_scaler": target_scaler.to_dict(), "seed": seed,
+        "recommended_predictor": recommended,
+        "selection_rule": "Lowest validation flight-macro ADE; never selected on test results.",
+        "validation": metrics["validation"], "provenance": provenance,
+    }
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    verify_source_hashes(provenance["data"])
+    torch.save(checkpoint, model_path)
+    return {
+        "seed": seed, "model_path": str(model_path), "model_sha256": file_hash(model_path),
+        "recommended_predictor": recommended, "best_epoch": best_epoch,
+        "best_validation_loss": best_loss,
+        "training": {"epochs_requested": args.epochs, "epochs_completed": len(history),
+                     "history": history}, **metrics,
     }
 
-    with output_path.open("w") as f:
-        json.dump(
-            benchmark,
-            f,
-            indent=2,
-        )
 
-    print()
-    print(f"Benchmark saved: {output_path}")
+def build_parser():
+    parser = argparse.ArgumentParser(description=__doc__)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--input", help="One real log or NPZ, split chronologically for exploration.")
+    source.add_argument("--synthetic-root", help="Directory of NPZ flights with predefined splits.")
+    source.add_argument("--manifest", help="JSON with disjoint train/validation/test flight lists.")
+    parser.add_argument("--holdout-group", choices=("mission", "platform"),
+                        help="Require this manifest group to be disjoint across all three splits.")
+    parser.add_argument("--case-id", required=True)
+    parser.add_argument("--output", required=True, help="Benchmark JSON output.")
+    parser.add_argument("--model-output", required=True, help="First seed checkpoint; extra seeds get suffixes.")
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--hidden-size", type=int, default=64)
+    parser.add_argument("--layers", type=int, default=2)
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--patience", type=int, default=7)
+    parser.add_argument("--history-steps", type=int, default=20)
+    parser.add_argument("--prediction-steps", type=int, default=10)
+    parser.add_argument("--interval", type=float, default=0.1)
+    parser.add_argument("--input-frame", choices=("global", "centered", "heading"), default="centered")
+    parser.add_argument("--target-mode", choices=("absolute", "relative", "residual_velocity", "residual_acceleration"),
+                        default="residual_velocity")
+    seeds = parser.add_mutually_exclusive_group()
+    seeds.add_argument("--seed", type=int, default=SEED)
+    seeds.add_argument("--seeds", type=int, nargs="+", help="Repeat training on the same fixed splits.")
+    parser.add_argument("--device", choices=("cpu", "cuda", "auto"), default="cpu")
+    parser.add_argument("--threads", type=int, default=2)
+    return parser
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    for name in ("epochs", "batch_size", "hidden_size", "layers", "patience", "prediction_steps", "threads"):
+        if getattr(args, name) <= 0:
+            parser.error(f"--{name.replace('_', '-')} must be positive.")
+    if args.history_steps < 2:
+        parser.error("--history-steps must be at least two.")
+    if not np.isfinite(args.learning_rate) or args.learning_rate <= 0:
+        parser.error("--learning-rate must be positive and finite.")
+    seeds = args.seeds if args.seeds is not None else [args.seed]
+    if len(set(seeds)) != len(seeds) or any(seed < 0 or seed >= 2**32 for seed in seeds):
+        parser.error("Seeds must be distinct integers in [0, 2**32).")
+    WindowTransform(args.input_frame, args.target_mode, args.interval)
+    torch.set_num_threads(args.threads)
+    device_name = "cuda" if args.device == "auto" and torch.cuda.is_available() else args.device
+    if device_name == "auto":
+        device_name = "cpu"
+    if device_name == "cuda":
+        if not torch.cuda.is_available():
+            parser.error("CUDA is not available; use --device cpu.")
+        import os
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    device = torch.device(device_name)
+    windows, data_provenance = load_training_data(
+        input_path=args.input, synthetic_root=args.synthetic_root, manifest=args.manifest,
+        holdout_group=args.holdout_group, history_steps=args.history_steps,
+        prediction_steps=args.prediction_steps, interval_s=args.interval,
+    )
+    for name, block in windows.items():
+        print(f"{name}: {block['trajectory_count']} flights, {len(block['X'])} windows", flush=True)
+    model_paths = [checkpoint_path(args.model_output, seed, seeds[0]) for seed in seeds]
+    ensure_distinct_outputs([args.output, *model_paths],
+                            [entry["path"] for entry in data_provenance["sources"]] + [args.manifest])
+    provenance = {**runtime_provenance(), "data": data_provenance, "arguments": vars(args),
+                  "coordinate_frame": COORDINATE_FRAME, "feature_names": FEATURE_NAMES.copy(),
+                  "feature_contract_version": FEATURE_CONTRACT_VERSION,
+                  "resampling": {"inputs": "previous observation (causal)", "targets": "linear interpolation"},
+                  "normalization_fit_on": "training_windows_only"}
+    runs = [train_run(args, windows, seed, device, provenance, path)
+            for seed, path in zip(seeds, model_paths)]
+    result = {
+        "schema_version": "2.0", "case_id": args.case_id, "device": str(device),
+        "target_mode": args.target_mode, "input_frame": args.input_frame,
+        "dataset_type": data_provenance["mode"], "provenance": provenance,
+        "window_configuration": {"history_steps": args.history_steps,
+                                 "history_span_s": (args.history_steps - 1) * args.interval,
+                                 "prediction_steps": args.prediction_steps,
+                                 "prediction_horizon_s": args.prediction_steps * args.interval,
+                                 "interval_s": args.interval, "feature_count": len(FEATURE_NAMES)},
+        "split_sizes": {name: {"trajectory_count": block["trajectory_count"], "window_count": len(block["X"])}
+                        for name, block in windows.items()},
+        "runs": runs, "test": runs[0]["test"],
+        "aggregate": summarize_runs(runs, data_provenance["independent_flight_holdout"]),
+        "interpretation": "Forecasts are model estimates. Real-log errors are against recorded estimator observations, not independent ground truth.",
+    }
+    write_json(args.output, result)
+    for name, block in result["aggregate"]["models"].items():
+        print(f"{name}: flight-macro ADE={block['flight_macro_mean']['ade_m']:.6f} m, "
+              f"FDE={block['flight_macro_mean']['fde_m']:.6f} m")
+    print(f"Saved benchmark: {args.output}")
+    return result
 
 
 if __name__ == "__main__":
