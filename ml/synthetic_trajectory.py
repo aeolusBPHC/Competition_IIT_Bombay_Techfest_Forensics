@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +19,32 @@ class SyntheticTrajectory:
     heading_sin: np.ndarray
     heading_cos: np.ndarray
     position_valid: np.ndarray
+    ground_truth_position: np.ndarray | None = None
+    ground_truth_velocity: np.ndarray | None = None
+    segment_ids: np.ndarray | None = None
+    seed: int = 0
+
+
+@dataclass(frozen=True)
+class SensorNoise:
+    """Illustrative observation noise; these defaults are not calibrated to hardware."""
+    position_noise_std: float = 0.15
+    velocity_noise_std: float = 0.10
+    heading_noise_std_deg: float = 2.0
+    position_drift_std: float = 0.02  # m / sqrt(s), random walk
+    timing_jitter_std: float = 0.01  # s, bounded to preserve observation order
+    dropout_probability: float = 0.01
+    outage_probability: float = 0.5
+    outage_duration_s: float = 0.7
+    reset_probability: float = 0.5
+    reset_jump_std: float = 0.5  # m; estimator correction, not physical motion
+
+    def __post_init__(self):
+        for name, value in asdict(self).items():
+            if not np.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative.")
+            if name.endswith("probability") and value > 1:
+                raise ValueError(f"{name} must be in [0, 1].")
 
 
 SCENARIOS = [
@@ -693,224 +719,117 @@ def add_measurement_noise(
 
 
 def build_trajectory(
-    trajectory_id: int,
-    split: str,
-    scenario: str,
-    duration_s: float,
-    interval_s: float,
-    seed: int,
-    noisy: bool = True,
+    trajectory_id: int, split: str, scenario: str, duration_s: float,
+    interval_s: float, seed: int, noisy: bool = True, noise: SensorNoise | None = None,
 ) -> SyntheticTrajectory:
-
-    rng = np.random.default_rng(seed)
-
-    timestamps = np.arange(
-        0.0,
-        duration_s + interval_s * 0.5,
-        interval_s,
-    )
-
-    position, velocity = SCENARIO_FUNCTIONS[scenario](
-        timestamps,
-        rng,
-    )
-
-    if noisy:
-        measured_position = add_measurement_noise(
-            position,
-            rng,
+    if not np.isfinite(interval_s) or interval_s <= 0 or not np.isfinite(duration_s) or duration_s <= interval_s:
+        raise ValueError("Duration and interval must be finite, with duration greater than interval.")
+    if split not in {"train", "validation", "test"} or scenario not in SCENARIOS:
+        raise ValueError("Unknown split or scenario.")
+    noise = noise or SensorNoise()
+    # Separate motion and observation RNG streams so changing sensor noise
+    # leaves the underlying flight parameters fixed for paired experiments.
+    motion_rng = np.random.default_rng(seed)
+    sensor_rng = np.random.default_rng(np.random.SeedSequence([seed, 1]))
+    timestamps = np.arange(0.0, duration_s + interval_s * 0.5, interval_s)
+    if noisy and noise.timing_jitter_std:
+        timestamps[1:-1] += np.clip(
+            sensor_rng.normal(0, noise.timing_jitter_std, len(timestamps) - 2),
+            -0.4 * interval_s, 0.4 * interval_s,
         )
-    else:
-        measured_position = position.copy()
-
-    speed = np.linalg.norm(
-        velocity,
-        axis=1,
-    )
-
-    horizontal_speed = np.linalg.norm(
-        velocity[:, :2],
-        axis=1,
-    )
-
-    heading = np.arctan2(
-        velocity[:, 1],
-        velocity[:, 0],
-    )
-
-    heading_sin = np.sin(heading)
-    heading_cos = np.cos(heading)
-
-    position_valid = np.ones(
-        len(timestamps),
-        dtype=np.float32,
-    )
-
+    position, velocity = SCENARIO_FUNCTIONS[scenario](timestamps, motion_rng)
+    measured_position, measured_velocity = position.copy(), velocity.copy()
+    valid = np.ones(len(timestamps), dtype=bool)
+    segments = np.zeros(len(timestamps), dtype=int)
+    if noisy:
+        dt = np.diff(timestamps, prepend=timestamps[0])
+        drift = np.cumsum(sensor_rng.normal(size=position.shape)
+                          * np.sqrt(dt[:, None]) * noise.position_drift_std, axis=0)
+        measured_position += drift + sensor_rng.normal(0, noise.position_noise_std, position.shape)
+        measured_velocity += sensor_rng.normal(0, noise.velocity_noise_std, velocity.shape)
+        if sensor_rng.random() < noise.reset_probability:
+            reset = int(sensor_rng.integers(max(1, len(timestamps) // 3),
+                                            max(2, 2 * len(timestamps) // 3)))
+            measured_position[reset:] += sensor_rng.normal(0, noise.reset_jump_std, 3) - drift[reset]
+            segments[reset:] += 1
+        valid &= sensor_rng.random(len(valid)) >= noise.dropout_probability
+        if sensor_rng.random() < noise.outage_probability:
+            outage_start = sensor_rng.uniform(0.2, 0.7) * duration_s
+            valid &= ~((timestamps >= outage_start)
+                       & (timestamps < outage_start + noise.outage_duration_s))
+    heading = np.arctan2(measured_velocity[:, 1], measured_velocity[:, 0])
+    if noisy:
+        heading += sensor_rng.normal(0, np.radians(noise.heading_noise_std_deg), len(heading))
+    measured_position[~valid] = np.nan
+    measured_velocity[~valid] = np.nan
     return SyntheticTrajectory(
-        trajectory_id=trajectory_id,
-        split=split,
-        scenario=scenario,
-        timestamps=timestamps,
-        position=measured_position,
-        velocity=velocity,
-        speed=speed,
-        heading_sin=heading_sin,
-        heading_cos=heading_cos,
-        position_valid=position_valid,
+        trajectory_id, split, scenario, timestamps, measured_position, measured_velocity,
+        np.linalg.norm(measured_velocity, axis=1), np.sin(heading), np.cos(heading),
+        valid.astype(np.float32), position, velocity, segments, seed,
     )
 
 
 def generate_dataset(
-    output_dir: str | Path,
-    train_count: int = 70,
-    validation_count: int = 15,
-    test_count: int = 15,
-    duration_s: float = 60.0,
-    interval_s: float = 0.1,
-    seed: int = 20260927,
+    output_dir: str | Path, train_count: int = 70, validation_count: int = 15,
+    test_count: int = 15, duration_s: float = 60.0, interval_s: float = 0.1,
+    seed: int = 20260927, noise: SensorNoise | None = None,
 ) -> None:
-
+    from ml.trajectory_provenance import file_hash, write_json
+    if min(train_count, validation_count, test_count) < 1:
+        raise ValueError("Every split must contain at least one trajectory.")
+    noise = noise or SensorNoise()
     output_dir = Path(output_dir)
-    output_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if list(output_dir.glob("trajectory_*.npz")) or (output_dir / "metadata.json").exists() or (output_dir / "manifest.json").exists():
+        raise ValueError("Choose a new output directory; existing trajectory datasets are preserved.")
     rng = np.random.default_rng(seed)
-
-    trajectories = []
-
-    total = train_count + validation_count + test_count
-
-    for trajectory_id in range(total):
-
-        if trajectory_id < train_count:
-            split = "train"
-        elif trajectory_id < train_count + validation_count:
-            split = "validation"
-        else:
-            split = "test"
-
-        scenario = SCENARIOS[
-            trajectory_id % len(SCENARIOS)
-        ]
-
-        trajectory_seed = int(
-            rng.integers(
-                0,
-                2**32 - 1,
+    trajectories, manifest = [], {name: [] for name in ("train", "validation", "test")}
+    trajectory_id = 0
+    for split, count in (("train", train_count), ("validation", validation_count), ("test", test_count)):
+        for split_index in range(count):
+            scenario = SCENARIOS[split_index % len(SCENARIOS)]
+            trajectory_seed = int(rng.integers(0, 2**32 - 1))
+            trajectory = build_trajectory(trajectory_id, split, scenario, duration_s,
+                                          interval_s, trajectory_seed, noise=noise)
+            path = output_dir / f"trajectory_{trajectory_id:03d}.npz"
+            np.savez_compressed(
+                path, **asdict(trajectory), coordinate_frame="ENU", schema_version=2,
+                sensor_noise_json=json.dumps(asdict(noise)),
             )
-        )
-
-        trajectory = build_trajectory(
-            trajectory_id=trajectory_id,
-            split=split,
-            scenario=scenario,
-            duration_s=duration_s,
-            interval_s=interval_s,
-            seed=trajectory_seed,
-            noisy=True,
-        )
-
-        trajectories.append(trajectory)
-
-        np.savez_compressed(
-            output_dir / f"trajectory_{trajectory_id:03d}.npz",
-            trajectory_id=trajectory.trajectory_id,
-            split=trajectory.split,
-            scenario=trajectory.scenario,
-            timestamps=trajectory.timestamps,
-            position=trajectory.position,
-            velocity=trajectory.velocity,
-            speed=trajectory.speed,
-            heading_sin=trajectory.heading_sin,
-            heading_cos=trajectory.heading_cos,
-            position_valid=trajectory.position_valid,
-        )
-
-    metadata = {
-        "dataset": "synthetic_uav_trajectory_v1",
-        "seed": seed,
-        "trajectory_count": total,
-        "train_count": train_count,
-        "validation_count": validation_count,
-        "test_count": test_count,
-        "duration_s": duration_s,
-        "interval_s": interval_s,
-        "sampling_hz": 1.0 / interval_s,
-        "scenarios": SCENARIOS,
-        "position_noise_std_m": 0.02,
-        "trajectories": [
-            {
-                "trajectory_id": trajectory.trajectory_id,
-                "split": trajectory.split,
-                "scenario": trajectory.scenario,
-                "samples": len(trajectory.timestamps),
-            }
-            for trajectory in trajectories
-        ],
-    }
-
-    with open(
-        output_dir / "metadata.json",
-        "w",
-        encoding="utf-8",
-    ) as f:
-        json.dump(
-            metadata,
-            f,
-            indent=2,
-        )
-
-    print("=" * 80)
-    print("SYNTHETIC UAV TRAJECTORY DATASET")
-    print("=" * 80)
-    print()
-    print(f"Output directory : {output_dir}")
-    print(f"Trajectories     : {total}")
-    print(f"Train            : {train_count}")
-    print(f"Validation       : {validation_count}")
-    print(f"Test             : {test_count}")
-    print(f"Duration         : {duration_s:.1f} s")
-    print(f"Sampling         : {1.0 / interval_s:.1f} Hz")
-    print(f"Interval         : {interval_s:.3f} s")
-    print(f"Position noise   : 0.020 m")
-    print()
-    print("SCENARIOS")
-    print("-" * 80)
-
-    for scenario in SCENARIOS:
-        count = sum(
-            trajectory.scenario == scenario
-            for trajectory in trajectories
-        )
-
-        print(
-            f"{scenario:24s}: "
-            f"{count:3d} trajectories"
-        )
-
-    print()
-    print("Dataset generation complete.")
-    print("=" * 80)
+            trajectories.append({"trajectory_id": trajectory_id, "split": split,
+                                 "scenario": scenario, "seed": trajectory_seed,
+                                 "samples": len(trajectory.timestamps), "sha256": file_hash(path)})
+            manifest[split].append({"path": path.name, "flight_id": f"synthetic-{trajectory_id}",
+                                    "platform": "synthetic", "mission": f"synthetic-{trajectory_id}"})
+            trajectory_id += 1
+    write_json(output_dir / "metadata.json", {
+        "dataset": "synthetic_uav_trajectory_v2", "schema_version": 2, "seed": seed,
+        "coordinate_frame": "ENU", "trajectory_count": trajectory_id,
+        "train_count": train_count, "validation_count": validation_count, "test_count": test_count,
+        "duration_s": duration_s, "interval_s": interval_s, "scenarios": SCENARIOS,
+        "sensor_noise": asdict(noise), "noise_calibration": "Illustrative; not calibrated to a real sensor.",
+        "label_kind": "simulation_ground_truth", "trajectories": trajectories,
+    })
+    write_json(output_dir / "manifest.json", manifest)
+    print(f"Generated {trajectory_id} ENU trajectories in {output_dir}")
 
 
-def main() -> None:
-    output_dir = (
-        Path("repository")
-        / "synthetic_datasets"
-        / "trajectory_v1"
-    )
-
-    generate_dataset(
-        output_dir=output_dir,
-        train_count=70,
-        validation_count=15,
-        test_count=15,
-        duration_s=60.0,
-        interval_s=0.1,
-        seed=20260927,
-    )
+def main(argv=None) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate synthetic UAV flights with separate observations and ground truth.")
+    parser.add_argument("--output-dir", default="repository/synthetic_datasets/trajectory_v2")
+    parser.add_argument("--train-count", type=int, default=70)
+    parser.add_argument("--validation-count", type=int, default=15)
+    parser.add_argument("--test-count", type=int, default=15)
+    parser.add_argument("--duration", type=float, default=60.0)
+    parser.add_argument("--interval", type=float, default=0.1)
+    parser.add_argument("--seed", type=int, default=20260927)
+    for name, default in asdict(SensorNoise()).items():
+        parser.add_argument("--" + name.replace("_", "-"), type=float, default=default)
+    args = parser.parse_args(argv)
+    noise = SensorNoise(**{name: getattr(args, name) for name in asdict(SensorNoise())})
+    generate_dataset(args.output_dir, args.train_count, args.validation_count, args.test_count,
+                     args.duration, args.interval, args.seed, noise)
 
 
 if __name__ == "__main__":
