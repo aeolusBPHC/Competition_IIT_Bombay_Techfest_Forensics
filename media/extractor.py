@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -31,6 +32,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from media import exif as exif_reader
+from media import anomalies
+from media import embedded_telemetry
+from media import frame_timeline
+from media import filesystem_timeline
 from media import signatures, srt, video, xmp
 from media.normalize import normalize
 
@@ -48,8 +53,12 @@ class MediaItem:
     format: str
     mime: str
     extension_matches_content: bool
+    analysis_method: str = "content-signature detection and format-specific parsers"
     metadata: dict[str, Any] = field(default_factory=dict)
     telemetry: dict[str, Any] | None = None
+    frame_timeline: dict[str, Any] | None = None
+    embedded_telemetry: dict[str, Any] | None = None
+    anomalies: list[dict[str, Any]] = field(default_factory=list)
     sidecar_of: str | None = None
     sidecars: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -70,18 +79,31 @@ def _read_head(path: str, n: int) -> bytes:
 
 class MediaExtractor:
     def __init__(self, input_path: str | Path, srt_gps_axis_order: str | None = None,
-                 keep_recovered: str | None = None):
+                 keep_recovered: str | None = None, frame_interval_s: float | None = 1.0,
+                 position_disagreement_m: float = anomalies.POSITION_DISAGREEMENT_M,
+                 max_ground_speed_m_s: float = anomalies.IMPLAUSIBLE_GROUND_SPEED_M_S,
+                 max_vertical_speed_m_s: float = anomalies.IMPLAUSIBLE_VERTICAL_SPEED_M_S):
         """
         srt_gps_axis_order: examiner override ('lon_lat'/'lat_lon') for SRT files
             whose positional GPS order cannot be proven from the values.
         keep_recovered: directory to keep files recovered from a disk image
             (default: a temporary directory that is deleted afterwards).
         """
+        if frame_interval_s is not None and (
+                not math.isfinite(frame_interval_s) or frame_interval_s <= 0):
+            raise ValueError("frame_interval_s must be positive or None")
         self.input_path = str(input_path)
         self.srt_gps_axis_order = srt_gps_axis_order
         self.keep_recovered = keep_recovered
+        self.frame_interval_s = frame_interval_s
+        self.anomaly_thresholds = {
+            "position_disagreement_m": position_disagreement_m,
+            "max_ground_speed_m_s": max_ground_speed_m_s,
+            "max_vertical_speed_m_s": max_vertical_speed_m_s,
+        }
         self.warnings: list[str] = []
         self.input_type: str | None = None
+        self.filesystem_timeline: dict[str, Any] | None = None
 
     # ----------------------------------------------------------- contract
     @classmethod
@@ -132,13 +154,14 @@ class MediaExtractor:
                     if limit and count >= limit:
                         return
 
-    def _recover_from_image(self, image: str, workdir: str) -> list[tuple[str, str, str]]:
+    def _recover_from_image(self, image: str, workdir: str,
+                            offsets: list[int] | None = None) -> list[tuple[str, str, str]]:
         """Return (host_path, evidence_path, origin) for every recovered file."""
         if not shutil.which("tsk_recover") or not shutil.which("mmls"):
             self.warnings.append("Disk image given but The Sleuth Kit (tsk_recover, mmls) is not "
                                  "installed; install 'sleuthkit' to extract files from images")
             return []
-        offsets = self._partition_offsets(image)
+        offsets = offsets if offsets is not None else self._partition_offsets(image)
         out: list[tuple[str, str, str]] = []
         for off in offsets:
             alloc_dir = os.path.join(workdir, f"p{off}_allocated")
@@ -194,6 +217,12 @@ class MediaExtractor:
                 item.errors.extend(ex.get("errors", []))
             elif ftype.kind == "video":
                 vid = video.read(host_path) if ftype.format in ("MP4", "QuickTime") else {}
+                item.analysis_method = "ffprobe presentation-time index; ffmpeg JPEG previews; ExifTool metadata/telemetry"
+                item.frame_timeline = frame_timeline.build(
+                    host_path, self.frame_interval_s, source_path=evidence_path,
+                    source_sha256=item.sha256,
+                )
+                item.embedded_telemetry = embedded_telemetry.read(host_path)
                 props = xmp.extract(_read_head(host_path, XMP_SCAN_BYTES))
                 item.metadata = normalize(None, props, vid)
                 item.metadata["raw"] = {"container": {k: v for k, v in vid.items() if k != "errors"},
@@ -236,7 +265,11 @@ class MediaExtractor:
                 self.input_type = "disk_image"
                 tmp = self.keep_recovered or tempfile.mkdtemp(prefix="media_recover_")
                 os.makedirs(tmp, exist_ok=True)
-                candidates = self._recover_from_image(self.input_path, tmp)
+                offsets = self._partition_offsets(self.input_path)
+                self.filesystem_timeline = filesystem_timeline.extract(
+                    self.input_path, offsets
+                )
+                candidates = self._recover_from_image(self.input_path, tmp, offsets)
             else:
                 self.input_type = "unrecognized"
                 self.warnings.append("input is neither media nor a recognizable disk image")
@@ -262,7 +295,24 @@ class MediaExtractor:
             counts[i.kind] = counts.get(i.kind, 0) + 1
         makes = sorted({str(i.metadata.get("fields", {}).get("make", {}).get("value"))
                         for i in items if i.metadata.get("fields", {}).get("make")})
-        return {
+        by_path = {i.path: i for i in items}
+        for item in items:
+            evidence = asdict(item)
+            if item.kind == "video":
+                linked = next((by_path.get(path) for path in item.sidecars
+                               if by_path.get(path) and by_path[path].kind == "telemetry"), None)
+                if linked:
+                    evidence["telemetry"] = linked.telemetry
+            item.anomalies = anomalies.analyze_item(evidence, **self.anomaly_thresholds)
+            # Preserve established EXIF/XMP/camera-clock observations in the
+            # consolidated anomaly report, while keeping metadata.flags stable.
+            for flag in item.metadata.get("flags", []):
+                item.anomalies.append({"type": flag.get("flag", "METADATA_INCONSISTENCY"),
+                                       "severity": "warning", "confidence": "medium",
+                                       "source": "normalized_metadata",
+                                       **{k: v for k, v in flag.items() if k != "flag"}})
+        anomaly_count = sum(len(i.anomalies) for i in items)
+        report = {
             "schema_version": SCHEMA_VERSION,
             "generated_utc": started,
             "input": {"path": self.input_path, "type": self.input_type, "sha256": input_hash},
@@ -275,11 +325,17 @@ class MediaExtractor:
                 "with_position": sum(1 for i in items if "latitude" in i.metadata.get("fields", {})),
                 "with_drone_telemetry": sum(1 for i in items if i.metadata.get("drone_telemetry_present")),
                 "flagged": sum(1 for i in items if i.metadata.get("flags")),
+                "anomaly_count": anomaly_count,
+                "media_with_anomalies": sum(bool(i.anomalies) for i in items),
                 "makes": makes,
             },
             "warnings": self.warnings,
+            "anomaly_thresholds": self.anomaly_thresholds,
             "items": [asdict(i) for i in items],
         }
+        if self.filesystem_timeline is not None:
+            report["filesystem_timeline"] = self.filesystem_timeline
+        return report
 
 
 # ------------------------------------------------------- normalized records
@@ -350,11 +406,28 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--srt-gps-axis-order", choices=["lon_lat", "lat_lon"],
                     help="examiner override for SRT files whose GPS order cannot be proven")
     ap.add_argument("--keep-recovered", help="keep files recovered from a disk image here")
+    ap.add_argument("--frame-interval-s", type=float, default=1.0,
+                    help="index the first video frame at each interval in seconds (default: 1); "
+                         "use 0 to index every decoded frame")
+    ap.add_argument("--position-disagreement-m", type=float, default=anomalies.POSITION_DISAGREEMENT_M,
+                    help="metadata coordinate disagreement threshold in metres (default: 50)")
+    ap.add_argument("--max-ground-speed-m-s", type=float, default=anomalies.IMPLAUSIBLE_GROUND_SPEED_M_S,
+                    help="location jump review threshold in m/s (default: 100)")
+    ap.add_argument("--max-vertical-speed-m-s", type=float, default=anomalies.IMPLAUSIBLE_VERTICAL_SPEED_M_S,
+                    help="altitude rate review threshold in m/s (default: 60)")
     args = ap.parse_args(argv)
 
     ident = MediaExtractor.identify(args.input)
     print(f"[identify] {ident['format']} | supported={ident['supported']} | {ident['reason']}")
-    report = MediaExtractor(args.input, args.srt_gps_axis_order, args.keep_recovered).extract()
+    interval = None if args.frame_interval_s == 0 else args.frame_interval_s
+    if not math.isfinite(args.frame_interval_s) or interval is not None and interval < 0:
+        ap.error("--frame-interval-s must be positive or 0 for every frame")
+    thresholds = (args.position_disagreement_m, args.max_ground_speed_m_s,
+                  args.max_vertical_speed_m_s)
+    if any(not math.isfinite(value) or value <= 0 for value in thresholds):
+        ap.error("anomaly thresholds must be finite positive numbers")
+    report = MediaExtractor(args.input, args.srt_gps_axis_order, args.keep_recovered,
+                            interval, *thresholds).extract()
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2, default=str)
@@ -371,6 +444,15 @@ def main(argv: list[str] | None = None) -> int:
               f"{s['with_drone_telemetry']} | flagged: {s['flagged']} | extension mismatches: "
               f"{s['extension_mismatches']}")
         print(f"[makes]   {', '.join(s['makes']) or 'none recorded'}")
+    filesystem = report.get("filesystem_timeline")
+    if filesystem:
+        summary = filesystem.get("summary", {})
+        print(f"[filesystem] {filesystem.get('status')} | entries: {summary.get('entry_count', 0)} "
+              f"(allocated: {summary.get('allocated_entries', 0)}, "
+              f"deleted: {summary.get('deleted_entries', 0)}) | "
+              f"timestamp events: {summary.get('event_count', 0)}")
+        for warning in filesystem.get("warnings", []):
+            print(f"[filesystem warning] {warning}")
     for w in report["warnings"]:
         print(f"[warning] {w}")
     print(f"[report]  {args.output}\n[sha256]  {digest}")

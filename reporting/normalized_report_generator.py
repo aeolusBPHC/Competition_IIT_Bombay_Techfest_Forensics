@@ -5,7 +5,8 @@ import base64
 from pathlib import Path
 from datetime import datetime
 from platform_parsers.common.registry import ParserRegistry
-from reporting.normalized_visualize import generate_visualizations
+from reporting.evidence_gallery import build_evidence_gallery, find_media_report
+from reporting.filesystem_timeline_view import build_filesystem_timeline
 
 # ============================================================
 # HELPERS
@@ -926,7 +927,7 @@ def build_timeline(timeline):
 # HTML GENERATION
 # ============================================================
 
-def generate_report(input_path, output_path):
+def generate_report(input_path, output_path, media_report_path=None, portable_media=False):
 
     data = load_json(input_path)
 
@@ -1035,6 +1036,8 @@ def generate_report(input_path, output_path):
 
                         if isinstance(value, list):
                             all_indicators.extend(value)
+
+                from reporting.normalized_visualize import generate_visualizations
 
                 visualization_result = generate_visualizations(
                     normalized_evidence,
@@ -1163,6 +1166,38 @@ def generate_report(input_path, output_path):
 
     source_name = source_file.name
 
+    repo_root = Path(__file__).resolve().parent.parent
+    case_root = repo_root / "repository" / "cases" / case_id
+    raw_media_source = evidence.get("source_file")
+    if media_report_path:
+        explicit_media_report = Path(media_report_path).expanduser().resolve()
+        if not explicit_media_report.is_file():
+            raise FileNotFoundError(
+                f"Media report does not exist: {explicit_media_report}"
+            )
+        media_report, _media_report_path = find_media_report([explicit_media_report])
+        if media_report is None:
+            raise ValueError(
+                f"Media report is not valid extractor JSON: {explicit_media_report}"
+            )
+    else:
+        media_candidates = [
+            Path(input_path).expanduser().resolve().parent / "media_report.json",
+            Path(output_path).expanduser().resolve().parent / "media_report.json",
+            Path(output_path).expanduser().resolve().parent.parent / "analysis" / "media_report.json",
+            case_root / "analysis" / "media_report.json",
+        ]
+        if raw_media_source:
+            source_path_for_media = Path(raw_media_source).expanduser()
+            media_candidates.append(source_path_for_media.parent.parent / "analysis" / "media_report.json")
+        media_report, _media_report_path = find_media_report(media_candidates)
+    evidence_gallery_html = build_evidence_gallery(
+        media_report, output_path, portable_media=portable_media
+    )
+    filesystem_timeline_html = build_filesystem_timeline(
+        (media_report or {}).get("filesystem_timeline")
+    )
+
     generated_time = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
@@ -1245,6 +1280,49 @@ def generate_report(input_path, output_path):
         </p>
 
     </div>
+    """
+
+    analyst_notes_html = """
+    <ul>
+
+        <li>
+            Findings are based on the available normalized
+            source evidence.
+        </li>
+
+        <li>
+            Absence of a recorded indicator does not prove
+            absence of an underlying event.
+        </li>
+
+        <li>
+            Platform-native event identifiers are preserved without
+            assigning unsupported semantic meanings.
+        </li>
+
+        <li>
+            GCS connection state changes are reported as
+            communication-state observations and are not
+            automatically classified as cyberattacks.
+        </li>
+
+        <li>
+            Command/ACK matching uses recorded command
+            identifiers and configured matching logic.
+        </li>
+
+        <li>
+            Temporal proximity between evidence records is not
+            treated as proof of causality.
+        </li>
+
+        <li>
+            Security findings are analytical outputs and should
+            be interpreted together with their underlying
+            evidence references.
+        </li>
+
+    </ul>
     """
 
     html_document = f"""
@@ -1491,6 +1569,41 @@ footer {{
     border-radius: 6px;
 }}
 
+.evidence-gallery {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }}
+.evidence-card {{ min-width: 0; overflow: hidden; border: 1px solid #d9dee7; border-radius: 10px; background: #fff; }}
+.evidence-media {{ min-height: 180px; background: #15191e; display: grid; place-items: center; }}
+.evidence-image, .evidence-video {{ display: block; width: 100%; max-height: 460px; object-fit: contain; }}
+.evidence-details {{ padding: 16px; }}
+.evidence-details h3 {{ margin: 0 0 6px; overflow-wrap: anywhere; }}
+.evidence-kind {{ display: inline-block; color: #24506b; font-size: 12px; font-weight: bold; text-transform: uppercase; }}
+.evidence-meta {{ display: flex; flex-wrap: wrap; gap: 8px 14px; color: #5f6b7a; font-size: 12px; margin: 10px 0; }}
+.evidence-meta .hash {{ overflow-wrap: anywhere; }}
+.gallery-anomalies {{ color: #8a4a16; }}
+.gallery-clean {{ color: #47733d; }}
+.gallery-empty, .gallery-unavailable {{ color: #687078; padding: 14px; }}
+.frame-index {{ margin: 12px 0; }}
+.frame-buttons {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 150px; overflow: auto; }}
+.frame-seek {{ display: grid; gap: 5px; width: 122px; border: 1px solid #cbd3dc; border-radius: 7px; background: #f8f9fa; padding: 6px; cursor: pointer; text-align: left; color: #27364a; }}
+.frame-seek:hover, .frame-seek:focus-visible {{ border-color: #3a78a1; background: #eef7fc; }}
+.frame-thumb {{ display: block; width: 100%; height: 66px; object-fit: cover; border-radius: 4px; background: #15191e; }}
+.gallery-findings {{ color: #744b12; margin: 10px 0; }}
+.gallery-findings ol {{ padding-left: 22px; }}
+.gallery-findings li {{ margin: 8px 0; overflow-wrap: anywhere; }}
+.portable-note {{ border-left: 3px solid #3d8060; background: #edf7f1; padding: 10px 12px; color: #315b45; }}
+.filesystem-timeline-scroll {{ overflow-x: auto; max-height: 640px; overflow-y: auto; }}
+.filesystem-timeline-table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
+.filesystem-timeline-table th, .filesystem-timeline-table td {{ border: 1px solid #dfe4e8; padding: 7px; text-align: left; vertical-align: top; }}
+.filesystem-path {{ overflow-wrap: anywhere; }}
+.filesystem-deleted {{ color: #a43b32; font-weight: 700; }}
+.filesystem-allocated {{ color: #386b45; }}
+.filesystem-timeline-summary {{ color: #425466; font-weight: 600; }}
+.filesystem-timeline-notes, .filesystem-timeline-warnings {{ font-size: 13px; }}
+.filesystem-timeline-warnings {{ color: #8a4a16; }}
+.timeline-empty {{ color: #687078; }}
+.gallery-metadata {{ width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }}
+.gallery-metadata td, .gallery-metadata th {{ border: 1px solid #dfe4e8; text-align: left; padding: 5px; overflow-wrap: anywhere; }}
+.gallery-summary, .gallery-telemetry {{ color: #5f6b7a; font-size: 13px; }}
+
 .plot-card img {{
     background: #ffffff;
 }}
@@ -1569,49 +1682,61 @@ Drone Forensic Examination Report
 
 
 {section(
-    "6. Navigation Analysis",
+    "6. Evidence Gallery",
+    evidence_gallery_html
+)}
+
+
+{section(
+    "7. Removable-media Timeline",
+    filesystem_timeline_html
+)}
+
+
+{section(
+    "8. Navigation Analysis",
     build_navigation(analysis)
 )}
 
 
 {section(
-    "7. Battery / Telemetry / Failsafe Analysis",
+    "9. Battery / Telemetry / Failsafe Analysis",
     build_operational_analysis(analysis)
 )}
 
 
 {section(
-    "8. Command and ACK Forensics",
+    "10. Command and ACK Forensics",
     build_commands(analysis)
 )}
 
 
 {section(
-    "9. State Reconstruction",
+    "11. State Reconstruction",
     build_states(analysis)
 )}
 
 
 {section(
-    "10. Native Events",
+    "12. Native Events",
     build_events(analysis)
 )}
 
 
 {section(
-    "11. Security Indicators",
+    "13. Security Indicators",
     build_security_indicators(security)
 )}
 
 
 {section(
-    "12. Forensic Findings",
+    "14. Forensic Findings",
     build_findings(findings)
 )}
 
 
 {section(
-    "13. Forensic Timeline",
+    "15. Forensic Timeline",
     build_timeline(
         analysis.get("timeline", {})
     )
@@ -1619,55 +1744,14 @@ Drone Forensic Examination Report
 
 
 {section(
-    "14. Evidence-Based Interpretation",
+    "16. Evidence-Based Interpretation",
     conclusion
 )}
 
 
 {section(
-    "15. Analyst Notes and Limitations",
-    """
-    <ul>
-
-        <li>
-            Findings are based on the available normalized
-            source evidence.
-        </li>
-
-        <li>
-            Absence of a recorded indicator does not prove
-            absence of an underlying event.
-        </li>
-
-        <li>
-            Platform-native event identifiers are preserved without
-            assigning unsupported semantic meanings.
-        </li>
-
-        <li>
-            GCS connection state changes are reported as
-            communication-state observations and are not
-            automatically classified as cyberattacks.
-        </li>
-
-        <li>
-            Command/ACK matching uses recorded command
-            identifiers and configured matching logic.
-        </li>
-
-        <li>
-            Temporal proximity between evidence records is not
-            treated as proof of causality.
-        </li>
-
-        <li>
-            Security findings are analytical outputs and should
-            be interpreted together with their underlying
-            evidence references.
-        </li>
-
-    </ul>
-    """
+    "17. Analyst Notes and Limitations",
+    analyst_notes_html
 )}
 
 
@@ -1743,11 +1827,24 @@ def main():
         help="Output HTML report"
     )
 
+    parser.add_argument(
+        "--media-report",
+        help="Media extractor JSON to include in the Evidence Gallery"
+    )
+
+    parser.add_argument(
+        "--portable-media",
+        action="store_true",
+        help="copy hash-verified media beside the HTML report into <report>_assets"
+    )
+
     args = parser.parse_args()
 
     generate_report(
         args.input,
-        args.output
+        args.output,
+        media_report_path=args.media_report,
+        portable_media=args.portable_media,
     )
 
 

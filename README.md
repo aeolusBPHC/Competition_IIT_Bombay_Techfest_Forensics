@@ -499,9 +499,14 @@ dosfstools
 mtools
 ```
 
-Media evidence is intentionally kept as a separate forensic branch.
-
-Media metadata can later be correlated with telemetry and flight timelines, but media is not automatically treated as GRU trajectory input.
+Media reports can be added to the normalized HTML case report as an Evidence
+Gallery, including video playback, frame previews and seeking, metadata, hashes,
+and detailed anomaly findings. `--portable-media` copies hash-verified evidence
+beside the HTML report as report derivatives. This presentation link does not itself align media timestamps with a
+flight-controller log or prove that two files belong to the same flight.
+Disk-image reports include a removable-media timeline with labels for the
+filesystem timestamp meanings and their limits. See
+[MEDIA_EXTRACTOR.md](MEDIA_EXTRACTOR.md) for setup and the end-to-end commands.
 
 ---
 
