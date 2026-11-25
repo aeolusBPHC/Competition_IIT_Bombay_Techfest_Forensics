@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 import pytest
 from PIL import Image
 
-from media import signatures, srt, video, xmp
+from media import embedded_telemetry, frame_timeline, signatures, srt, video, xmp
 from media.extractor import MediaExtractor, to_gps_records
 from media.normalize import normalize
 
@@ -256,6 +256,28 @@ def test_mp4_container_metadata_and_sidecar_link(tmp_path):
     assert f["duration_s"]["value"] == 65.0
     assert f["latitude"]["value"] == pytest.approx(47.6437)
     assert v["sidecars"] == ["DJI_0100.SRT"]
+
+
+def test_video_frame_timeline_is_included_in_media_report(tmp_path, monkeypatch):
+    (tmp_path / "clip.mp4").write_bytes(make_mp4())
+    expected = {"status": "ok", "timestamp_basis": "video_presentation_time_seconds",
+                "interval_s": 1.0, "frames": [{"frame_number": 0, "pts_s": 0.0,
+                "offset_s": 0.0}], "warnings": []}
+    expected_embedded = {"status": "ok", "formats": ["GoPro_GPMF"], "samples": []}
+    calls = []
+
+    def fake_timeline(path, interval_s, **kwargs):
+        calls.append((path, interval_s))
+        return expected
+
+    monkeypatch.setattr(frame_timeline, "build", fake_timeline)
+    monkeypatch.setattr(embedded_telemetry, "read", lambda path: expected_embedded)
+    report = MediaExtractor(tmp_path).extract()
+
+    item = next(item for item in report["items"] if item["kind"] == "video")
+    assert item["frame_timeline"] == expected
+    assert item["embedded_telemetry"] == expected_embedded
+    assert len(calls) == 1 and calls[0][1] == 1.0
 
 
 def test_truncated_video_does_not_crash(tmp_path):
