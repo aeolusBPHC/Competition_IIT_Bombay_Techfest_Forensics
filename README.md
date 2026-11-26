@@ -315,4 +315,4 @@ Tests requiring unavailable tools or external samples may be skipped.
 - [Parser coverage and normalized evidence](platform_parsers/README.md)
 - [Media extraction, telemetry, and filesystem analysis](MEDIA_EXTRACTOR.md)
 - [Trajectory training, evaluation, and inference](ml/README.md)
-- [Recent commits and changed files](RECENT_CHANGES.md)
+
