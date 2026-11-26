@@ -1,0 +1,119 @@
+{
+  "publication_derivative": true,
+  "changes": "Local path strings normalized; numerical observations and forecasts retained. Source and model artifacts are omitted.",
+  "original_batch": "reports/pixhawk6c_mini/20261126-155443",
+  "files": {
+    "attitude_failsafe/forensic_report.html": {
+      "sha256": "f322f0d29c587393830102cc9aae7bf3e21fc7d8c3c3a8d1c8fdf3643fc94d74",
+      "original_artifact_sha256": "4a6f9b2efe5a4f11939ac8fbbfb3f15dc5ca5ba9b7a55af0d7fa8ce417961223"
+    },
+    "attitude_failsafe/ml_report.html": {
+      "sha256": "8214918030b92f34a03cf5c25f8ee23005df93e451b32986ec5d9d7131e1b48f",
+      "original_artifact_sha256": "5e55f9e2cb851db82b7995f1a83ee9c471ebb53ade54f97944c5eafcff78a087"
+    },
+    "attitude_failsafe/ml_predictions.json": {
+      "sha256": "148ee51a7064518e71bb838d91208aeb2ba832749202caf4a97ddc21ca32d90e",
+      "original_artifact_sha256": "d48fc41ade075434a3359982cb4e2e6be2e4295e1298b3820485e18dd25270be"
+    },
+    "attitude_failsafe/ml_forecast.png": {
+      "sha256": "0e7f9a4775df443a83edc04bcc2de87af03cc01473dd303e816095dc4beca7b6",
+      "original_artifact_sha256": "0e7f9a4775df443a83edc04bcc2de87af03cc01473dd303e816095dc4beca7b6"
+    },
+    "offboard_no_gps/forensic_report.html": {
+      "sha256": "bbc5be205a2518138f37bf15bc1035db510e913dc6e65a27d14ab524b6765bfb",
+      "original_artifact_sha256": "b331b6de5b8f90ba13ff2bafe2f7587208210b514390261c7745f72d4f50b608"
+    },
+    "offboard_no_gps/ml_report.html": {
+      "sha256": "e175223fa69e6d344b1752f42ef09d2e31ed40fc890a4c8c9710facedd19f175",
+      "original_artifact_sha256": "00c8ffc65506c900618ac1f77430e4e7a56c7e00e36e60ec2bfc376da3b5d0ef"
+    },
+    "offboard_no_gps/ml_predictions.json": {
+      "sha256": "14b8a31d219800bf5871b3a52fc2cd3a71653cfc245dbc33a5269f7f5d3560ee",
+      "original_artifact_sha256": "9339465562d68dafecc95856f1aecc0c69c2e6da29d120d299faa92d27f65c75"
+    },
+    "offboard_no_gps/ml_forecast.png": {
+      "sha256": "6e83d5bbf52ab03f98af17b252bdfcf498a5edfc1d3849c3a951c89e9e497ba8",
+      "original_artifact_sha256": "6e83d5bbf52ab03f98af17b252bdfcf498a5edfc1d3849c3a951c89e9e497ba8"
+    },
+    "motor_oscillation/forensic_report.html": {
+      "sha256": "dec2684afb5b66996e310536adf4168567ebee14019bf53f4fc8df60c14a806d",
+      "original_artifact_sha256": "5fefce25c3dd657ac7ceb11f6ceadd570a7b1bb3dc92f88a2d1f198335ec8112"
+    },
+    "motor_oscillation/ml_report.html": {
+      "sha256": "9ec455f0656e2761f8e451981d184547ab113ce642351d47c5f3e687a376e3db",
+      "original_artifact_sha256": "c4d21bdac2a2a8b77635abbb3c72df42d4140ca4c0803b8130bfe45a5852c724"
+    },
+    "motor_oscillation/ml_predictions.json": {
+      "sha256": "40bcf6ff1c506b08814a4f0619eba1353a23e7d8381dbc8ec22b543f92f298e6",
+      "original_artifact_sha256": "b117e3cdfead0286f67f9caee3a84b37069619a2e991a50d4d1e212d1088b264"
+    },
+    "motor_oscillation/ml_forecast.png": {
+      "sha256": "32b535fe711c6d239afca370fd9572d57a2b2859ba5eec541aca26e9839bb920",
+      "original_artifact_sha256": "32b535fe711c6d239afca370fd9572d57a2b2859ba5eec541aca26e9839bb920"
+    },
+    "land_mode/forensic_report.html": {
+      "sha256": "528eb5fc6ee1ee462e3ed8e062315df9b730a601972a06087b59eec923f7f890",
+      "original_artifact_sha256": "0ba7ab30796d83796017bd05f106146060549b252062c6581f7e611d775f32c4"
+    },
+    "land_mode/ml_report.html": {
+      "sha256": "e8f13392fdac8dd070df4182f98cd2073713c9c6a63094c564f98302494f6ef9",
+      "original_artifact_sha256": "aca35bca602f03a65c21c6309c9e5951ce94be4a7cef6c3e2c5b6f11bfacdb3a"
+    },
+    "land_mode/ml_predictions.json": {
+      "sha256": "504ed511a84e3b67d3e310b90bff88d9e75ea252a65d2dfa5bd9b81489ebb996",
+      "original_artifact_sha256": "7ba423e2dd4a3c6edaf482f17c512fb8cc22cc5723d83a7af64dce488ac8160c"
+    },
+    "land_mode/ml_forecast.png": {
+      "sha256": "50fe158f419833fbb558ad5f5d65f5e7682b78e668a1e6268ae5ca34a2d158ef",
+      "original_artifact_sha256": "50fe158f419833fbb558ad5f5d65f5e7682b78e668a1e6268ae5ca34a2d158ef"
+    },
+    "battery_original/forensic_report.html": {
+      "sha256": "3568576186922a6a4f63b40ca42a56389136ff108a32ac4b549b39506174bae9",
+      "original_artifact_sha256": "c41fdaf2ed163e03327cd942890b52392b237909f6db245366f741854ff62b0c"
+    },
+    "battery_original/ml_report.html": {
+      "sha256": "627d327c3486463acb159e87d7dbd343f459d0f0a44d3cf7137da012a704dcce",
+      "original_artifact_sha256": "3571a6bbb29d9c65acc1ec38c9b05f717abf8ca97fd726f9de19518907bea55d"
+    },
+    "battery_original/ml_predictions.json": {
+      "sha256": "cb560fc35654c8c7e3e9ebf8c422091b8d8bd0e6e211adae00118e147e253403",
+      "original_artifact_sha256": "2e3a8605649be0b7b272a4369319a6aedae596132866a1aac071aaf0a8d43e90"
+    },
+    "battery_original/ml_forecast.png": {
+      "sha256": "ff8949bc463dbda1ee8bedcafdfef821cba7face4e4a8da93dbaadca89d9b94b",
+      "original_artifact_sha256": "ff8949bc463dbda1ee8bedcafdfef821cba7face4e4a8da93dbaadca89d9b94b"
+    },
+    "battery_comparison/forensic_report.html": {
+      "sha256": "4f066682f57829408088f2ed7c44cc215b6f209f4b83a9a18e0abfc0f2d255ff",
+      "original_artifact_sha256": "d7323bc70657d88a435a6e838cf911fb0785e5058ed8b8fb35eb6d3a1da7f647"
+    },
+    "battery_comparison/ml_report.html": {
+      "sha256": "df217cd477234278d6880b83eb5bf27f622f7522d7243b600b46a5719b46127b",
+      "original_artifact_sha256": "fd5ed6f0b02d5fb69b7692c9d449008a590074d6fb8a4353d6f9cb40a945b8b8"
+    },
+    "battery_comparison/ml_predictions.json": {
+      "sha256": "e45a30e47a3a982e27dc3fb8020fa8dd20b4431d2b090fd768feee2b2a98009e",
+      "original_artifact_sha256": "bae6d5db11f98dc50670e49769ad662347a00fb88150bb3bd0e2feb7c729a674"
+    },
+    "battery_comparison/ml_forecast.png": {
+      "sha256": "8648aa03a2e906a4e1eee309324f0bd2efeb0a760eb286992288cb6555bbaf4c",
+      "original_artifact_sha256": "8648aa03a2e906a4e1eee309324f0bd2efeb0a760eb286992288cb6555bbaf4c"
+    },
+    "ekf_altitude/forensic_report.html": {
+      "sha256": "2891856f2ca432a928b9531a9dfe2e1bc497c613938641c09b597482320bdd20",
+      "original_artifact_sha256": "71284dfd27255427bf50247b14547fd1963153df063975cab3e30ccc8c1d54ef"
+    },
+    "ekf_altitude/ml_report.html": {
+      "sha256": "94cdcbce852d8f436079283eb5084ae2ac9b745096bb6620424b304786b45bf8",
+      "original_artifact_sha256": "621f3c871e18bc81d8f04e5c78c87b90fc473531ba9b9c66cd5ffd6dbced86c0"
+    },
+    "ekf_altitude/ml_predictions.json": {
+      "sha256": "af8c4befd64597f9d63a28d0579509e859cbeac47fd22357891306509c17efad",
+      "original_artifact_sha256": "7b95c5eb31ac593a20c751d1bdbcab5b0cd600ed8b4e8f1ea0a143826231635b"
+    },
+    "ekf_altitude/ml_forecast.png": {
+      "sha256": "77f5a0ac7c7b7e63a38ba2b9be9f9d12840ef9936109910fb54b14cd67279b0c",
+      "original_artifact_sha256": "77f5a0ac7c7b7e63a38ba2b9be9f9d12840ef9936109910fb54b14cd67279b0c"
+    }
+  }
+}

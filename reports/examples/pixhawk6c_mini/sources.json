@@ -1,0 +1,163 @@
+[
+  {
+    "slug": "attitude_failsafe",
+    "reported_case": "Attitude / roll failsafe",
+    "source_post": "https://discuss.px4.io/t/preflight-fail-attitude-failure-roll-message/45883",
+    "download_url": "https://review.px4.io/download?log=66f67982-c85d-45d2-806e-dbfab3cc2f94",
+    "log_id": "66f67982-c85d-45d2-806e-dbfab3cc2f94",
+    "sha256": "89c0ddaedc9f71259692f0d763d8825b16478d374c8c4a2b9ab1d34b74bdf0e5",
+    "size_bytes": 28146522,
+    "record_counts": {
+      "gps": 3501,
+      "navigation": 3502,
+      "trajectory": 7002,
+      "battery": 3502,
+      "telemetry": 700,
+      "failsafe": 1279,
+      "commands": 30,
+      "command_acks": 0,
+      "states": 1411,
+      "parameters": 1086,
+      "events": 115
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "offboard_no_gps",
+    "reported_case": "Offboard altitude loss; optical flow, no GPS",
+    "source_post": "https://discuss.px4.io/t/vehicle-doesnt-preserve-its-height-in-offboard-mode/43053",
+    "download_url": "https://review.px4.io/download?log=7207702f-978c-4716-a085-ba166e31d8ac",
+    "log_id": "7207702f-978c-4716-a085-ba166e31d8ac",
+    "sha256": "dad94e7246bf28515202180076509f8cf384a7af727c5b6a1323b1e07fde2021",
+    "size_bytes": 7873000,
+    "record_counts": {
+      "gps": 0,
+      "navigation": 0,
+      "trajectory": 640,
+      "battery": 321,
+      "telemetry": 0,
+      "failsafe": 117,
+      "commands": 27,
+      "command_acks": 24,
+      "states": 140,
+      "parameters": 1077,
+      "events": 14
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "motor_oscillation",
+    "reported_case": "Motor oscillation and overheating",
+    "source_post": "https://discuss.px4.io/t/px4-v1-14-3-blheli-32-strange-motor-output-and-overheating/40495",
+    "download_url": "https://review.px4.io/download?log=3383e1f8-d744-435b-957f-1f6b9536f50e",
+    "log_id": "3383e1f8-d744-435b-957f-1f6b9536f50e",
+    "sha256": "4bd5d1d290f1a182c35fa2db7255f9b75a0fd7ae15379ca05b7583480837cdb3",
+    "size_bytes": 3425170,
+    "record_counts": {
+      "gps": 378,
+      "navigation": 0,
+      "trajectory": 474,
+      "battery": 238,
+      "telemetry": 94,
+      "failsafe": 87,
+      "commands": 0,
+      "command_acks": 0,
+      "states": 94,
+      "parameters": 1103,
+      "events": 20
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "land_mode",
+    "reported_case": "Unexpected movement in Land mode",
+    "source_post": "https://discuss.px4.io/t/land-mode-and-commander-land-making-the-vehicle-return-to-launch/40389",
+    "download_url": "https://review.px4.io/download?log=4e063d14-3b85-4a2e-a357-81b2e83268a3",
+    "log_id": "4e063d14-3b85-4a2e-a357-81b2e83268a3",
+    "sha256": "508383378d330839bd35ff7cc8462df524b8d0f1c1527ab9f88e07c1405282d3",
+    "size_bytes": 3938455,
+    "record_counts": {
+      "gps": 0,
+      "navigation": 0,
+      "trajectory": 318,
+      "battery": 160,
+      "telemetry": 31,
+      "failsafe": 58,
+      "commands": 3,
+      "command_acks": 2,
+      "states": 66,
+      "parameters": 1083,
+      "events": 20
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "battery_original",
+    "reported_case": "Battery status investigation: original power module",
+    "source_post": "https://discuss.px4.io/t/pixhawk-6c-mini-battery-status-dropping-out-during-flight/48044",
+    "download_url": "https://review.px4.io/download?log=ae39b926-bb41-4077-baa0-5b3a9b10b659",
+    "log_id": "ae39b926-bb41-4077-baa0-5b3a9b10b659",
+    "sha256": "1d3d3c208aa38ddccccf18a8df171575a89862b6feac0f2f553e0cf4cfebae3f",
+    "size_bytes": 5549240,
+    "record_counts": {
+      "gps": 0,
+      "navigation": 0,
+      "trajectory": 1440,
+      "battery": 721,
+      "telemetry": 143,
+      "failsafe": 644,
+      "commands": 2,
+      "command_acks": 17,
+      "states": 287,
+      "parameters": 1094,
+      "events": 448
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "battery_comparison",
+    "reported_case": "Battery status investigation: comparison power module",
+    "source_post": "https://discuss.px4.io/t/pixhawk-6c-mini-battery-status-dropping-out-during-flight/48044",
+    "download_url": "https://review.px4.io/download?log=0be6e144-0956-49c4-a30e-e19e16ad5c65",
+    "log_id": "0be6e144-0956-49c4-a30e-e19e16ad5c65",
+    "sha256": "dcc63aae4f422b2f8e7b3a52176334ef93da932d3f632c6da156d5a2c40ffc1f",
+    "size_bytes": 4830027,
+    "record_counts": {
+      "gps": 0,
+      "navigation": 0,
+      "trajectory": 1294,
+      "battery": 648,
+      "telemetry": 129,
+      "failsafe": 236,
+      "commands": 5,
+      "command_acks": 17,
+      "states": 257,
+      "parameters": 1094,
+      "events": 19
+    },
+    "ml_status": "passed"
+  },
+  {
+    "slug": "ekf_altitude",
+    "reported_case": "EKF altitude estimation discrepancy",
+    "source_post": "https://discuss.px4.io/t/ekf2-altitude-offset/49379",
+    "download_url": "https://review.px4.io/download?log=be8dbf81-68c4-48e0-b559-cbadcf979396",
+    "log_id": "be8dbf81-68c4-48e0-b559-cbadcf979396",
+    "sha256": "e1feb8e2da68ed9676d60a597528b4359c141c3f6b5cb5ca4f3ffd65b61019da",
+    "size_bytes": 2980895,
+    "record_counts": {
+      "gps": 370,
+      "navigation": 371,
+      "trajectory": 740,
+      "battery": 0,
+      "telemetry": 146,
+      "failsafe": 136,
+      "commands": 16,
+      "command_acks": 13,
+      "states": 154,
+      "parameters": 1115,
+      "events": 32
+    },
+    "ml_status": "passed"
+  }
+]

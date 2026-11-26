@@ -1,0 +1,529 @@
+{
+  "schema_version": "2.0",
+  "case_id": "PUBLIC-6CMINI-BATTERY-ORIGINAL",
+  "artifact_type": "trajectory_forecast",
+  "coordinate_frame": "ENU",
+  "axes": {
+    "x": "east",
+    "y": "north",
+    "z": "up"
+  },
+  "position_units": "m",
+  "timestamp_domain": "source log seconds; not necessarily UTC",
+  "source": {
+    "path": "repository/cases/PUBLIC-6CMINI-BATTERY-ORIGINAL/EVD-20261126-155535-e1be484743b2/evidence/battery_original.ulg",
+    "sha256": "1d3d3c208aa38ddccccf18a8df171575a89862b6feac0f2f553e0cf4cfebae3f",
+    "trajectory_source": "native_or_normalized",
+    "coordinate_origin": {
+      "kind": "source_estimator_local_origin"
+    },
+    "label_kind": "estimator_observation"
+  },
+  "model": {
+    "checkpoint": "reports/pixhawk6c_mini/20261126-155443/models/gru_seed42.pt",
+    "sha256": "3b113af87dedfed72d67f9f39780b7277bbedfaf35a8f474e2c95f5b4fdb18d9",
+    "predictor": "gru",
+    "seed": 42,
+    "selection_rule": "Lowest validation flight-macro ADE; never selected on test results.",
+    "feature_contract_version": 2
+  },
+  "observed_history": {
+    "kind": "causally_resampled_observations",
+    "timestamps_s": [
+      4341.486444,
+      4341.586444,
+      4341.686444,
+      4341.786443999999,
+      4341.886444,
+      4341.986444,
+      4342.086444,
+      4342.186444,
+      4342.286443999999,
+      4342.386444,
+      4342.486444,
+      4342.586444,
+      4342.686444,
+      4342.786443999999,
+      4342.886444,
+      4342.986444,
+      4343.086444,
+      4343.186444,
+      4343.286443999999,
+      4343.386444
+    ],
+    "positions_m": [
+      [
+        -0.048679664731025696,
+        -0.2189348042011261,
+        -0.05071316659450531
+      ],
+      [
+        -0.04767748713493347,
+        -0.21631725132465363,
+        -0.04962437227368355
+      ],
+      [
+        -0.04654741659760475,
+        -0.21315811574459076,
+        -0.04856230318546295
+      ],
+      [
+        -0.04485857114195824,
+        -0.20994967222213745,
+        -0.047781288623809814
+      ],
+      [
+        -0.042776092886924744,
+        -0.20707234740257263,
+        -0.04708048328757286
+      ],
+      [
+        -0.041357267647981644,
+        -0.20461814105510712,
+        -0.0464911088347435
+      ],
+      [
+        -0.04067567363381386,
+        -0.20290638506412506,
+        -0.046327732503414154
+      ],
+      [
+        -0.04022657498717308,
+        -0.20178380608558655,
+        -0.046382222324609756
+      ],
+      [
+        -0.04016054794192314,
+        -0.20131805539131165,
+        -0.046595774590969086
+      ],
+      [
+        -0.04030060023069382,
+        -0.20100729167461395,
+        -0.04669532552361488
+      ],
+      [
+        -0.04054563120007515,
+        -0.20089948177337646,
+        -0.046503935009241104
+      ],
+      [
+        -0.04089105501770973,
+        -0.20095093548297882,
+        -0.046419814229011536
+      ],
+      [
+        -0.04106909781694412,
+        -0.20089779794216156,
+        -0.046257443726062775
+      ],
+      [
+        -0.04027790203690529,
+        -0.20071415603160858,
+        -0.04604380950331688
+      ],
+      [
+        -0.03868172690272331,
+        -0.2007233053445816,
+        -0.04572611674666405
+      ],
+      [
+        -0.03650408238172531,
+        -0.20080029964447021,
+        -0.04549650847911835
+      ],
+      [
+        -0.03375919908285141,
+        -0.20089823007583618,
+        -0.04539801925420761
+      ],
+      [
+        -0.030543692409992218,
+        -0.20111201703548431,
+        -0.04523279890418053
+      ],
+      [
+        -0.026901036500930786,
+        -0.20136335492134094,
+        -0.04519001394510269
+      ],
+      [
+        -0.019981835037469864,
+        -0.20124027132987976,
+        -0.044659700244665146
+      ]
+    ],
+    "velocities_m_s": [
+      [
+        0.019823050126433372,
+        -0.017063068225979805,
+        -0.06697249412536621
+      ],
+      [
+        0.020647305995225906,
+        -0.01159736979752779,
+        -0.06644389033317566
+      ],
+      [
+        0.020941458642482758,
+        -0.007947933860123158,
+        -0.06524643301963806
+      ],
+      [
+        0.02414170280098915,
+        -0.004033171571791172,
+        -0.06460537016391754
+      ],
+      [
+        0.024483736604452133,
+        -0.0010611482430249453,
+        -0.06396666914224625
+      ],
+      [
+        0.025543294847011566,
+        0.0001590247848071158,
+        -0.06478380411863327
+      ],
+      [
+        0.02603946253657341,
+        0.0010416649747639894,
+        -0.06518088281154633
+      ],
+      [
+        0.02577899396419525,
+        0.0008639594307169318,
+        -0.06453058868646622
+      ],
+      [
+        0.02498193271458149,
+        0.0009324807906523347,
+        -0.06520938128232956
+      ],
+      [
+        0.0235664714127779,
+        -0.0011431383900344372,
+        -0.06495027989149094
+      ],
+      [
+        0.021957259625196457,
+        -0.002226512413471937,
+        -0.06367325782775879
+      ],
+      [
+        0.020691294223070145,
+        -0.004516722168773413,
+        -0.06364238262176514
+      ],
+      [
+        0.027128050103783607,
+        -0.003678636159747839,
+        -0.06380107253789902
+      ],
+      [
+        0.033667560666799545,
+        -0.00038821977796033025,
+        -0.06320041418075562
+      ],
+      [
+        0.0404970645904541,
+        0.0011733464198186994,
+        -0.06273417174816132
+      ],
+      [
+        0.047675903886556625,
+        0.002872564597055316,
+        -0.06214753910899162
+      ],
+      [
+        0.05441751331090927,
+        0.0038775696884840727,
+        -0.06210603192448616
+      ],
+      [
+        0.06013644114136696,
+        0.0045762741938233376,
+        -0.0620231069624424
+      ],
+      [
+        0.06651731580495834,
+        0.005201004445552826,
+        -0.061072204262018204
+      ],
+      [
+        0.07510515302419662,
+        0.004801420960575342,
+        -0.059991102665662766
+      ]
+    ]
+  },
+  "forecast": {
+    "kind": "model_estimates",
+    "recorded_evidence": false,
+    "cutoff_timestamp_s": 4343.386444,
+    "timestamps_s": [
+      4343.486444,
+      4343.586444,
+      4343.686444,
+      4343.786443999999,
+      4343.886444,
+      4343.986444,
+      4344.086444,
+      4344.186444,
+      4344.286443999999,
+      4344.386444
+    ],
+    "positions_m": [
+      [
+        -0.0158922865259672,
+        -0.1998769080840328,
+        -0.04339553261717218
+      ],
+      [
+        -0.012766941411001986,
+        -0.20294409733593016,
+        -0.04883517637123806
+      ],
+      [
+        -0.007434705974808926,
+        -0.20219195657858505,
+        -0.0516643844921419
+      ],
+      [
+        -0.00453532410092196,
+        -0.20093504865653217,
+        -0.007146810571939416
+      ],
+      [
+        -0.0010421284779353404,
+        -0.20109368732159755,
+        -0.05169855870657082
+      ],
+      [
+        0.0014526688915842273,
+        -0.20260544989615786,
+        -0.05315852114485713
+      ],
+      [
+        0.005297087657739688,
+        -0.20194656836041336,
+        -0.04603941584900641
+      ],
+      [
+        0.007456400523224924,
+        -0.20189922079162909,
+        -0.01553545499356615
+      ],
+      [
+        0.008508027084000273,
+        -0.20231939841172472,
+        -0.03631902104988196
+      ],
+      [
+        0.010942027630580907,
+        -0.2009616357804452,
+        -0.026370845436635537
+      ]
+    ],
+    "prediction_interval": null,
+    "uncertainty_note": "No calibrated prediction interval. Flight-level benchmark confidence intervals describe aggregate error, not the certainty of this path."
+  },
+  "provenance": {
+    "inference_runtime": {
+      "dependencies": {
+        "python": "3.12.3",
+        "numpy": "2.5.3",
+        "torch": "2.14.0",
+        "pyulog": "1.2.4",
+        "pymavlink": "2.4.50"
+      },
+      "git_revision": "2e691e5e9fa50db360fb408f7772630cd4d327dd",
+      "source_sha256": {
+        "ml/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ml/inspect_case.py": "991ae0f59503828b1b93089ad43c02ee01065e6154e64cb44421f20160979e87",
+        "ml/synthetic_trajectory.py": "02bda8c7de730c458854d07a2bf535e7c556ec0202662fea2bb3b875843a3d57",
+        "ml/synthetic_trajectory_dataset.py": "5b96e11ec0a46c73c1754a9076bf8b3b603007c3b37e91cdabf827172b781edc",
+        "ml/trajectory_baseline.py": "d358ab9d4c906a5d32e9fb585563c1c4924ab20974ade73e8e296a677e203f26",
+        "ml/trajectory_benchmark.py": "01f82274020ea0dede4a75910e8251fd1b3ed60c68d0f1ec33fa702a3a18ee31",
+        "ml/trajectory_data.py": "8693eec9e89100d6b223b7b826b7618b37a076c727b4299730c3bfa3a3a8cf5d",
+        "ml/trajectory_dataset.py": "7ca0b618f0e522c947a9cfc947ff792443d922b72049e3f3aa338f8876d2c425",
+        "ml/trajectory_evaluation.py": "f02d7879d5f2d2e7624e01dbf6cc74607bc193eb20df391e2afef8be603d5637",
+        "ml/trajectory_features.py": "f422d5798b11ba40c82fdb591472bc58cea7bfb49b17d80d62ad7d30f6743c5b",
+        "ml/trajectory_gru.py": "378a4d65d19d03d71d3825299d10931a45e84809999b85b79e86a8061e0fb4bd",
+        "ml/trajectory_gru_train.py": "57b17ef60baf9c9769200642a31e336999249f2a870e97f62210a16b92fe8eae",
+        "ml/trajectory_inference.py": "a39fa4af0bd42b090e5bb0519af2facddc3376bacf27420f063c092956763701",
+        "ml/trajectory_preprocessing.py": "6b573ce4caa53a7c9b1e259dc32906019bce30f69fe6acf55ef19220a97563ee",
+        "ml/trajectory_provenance.py": "32d453fa7abbc4ad8e400e2f9bbe977818d0e7019c007fcfad58ecd265ee5d7d",
+        "ml/trajectory_quality.py": "6ac32090361bd444d671cf668c09488419afee77f30182c989fa85b4e070f1fd",
+        "platform_parsers/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/ardupilot/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/ardupilot/dataflash_extensions.py": "a051672485cecd784d2641ec7a242d841ae164700d33fece26fccc4d74f38f16",
+        "platform_parsers/ardupilot/dataflash_parser.py": "d329474a1b4d60d35e7cf9a34c581f0317fadd3296241957fe8bcad797222c94",
+        "platform_parsers/ardupilot/tlog_parser.py": "cbd3f2f443df2313ef7ae22b709920cdfc0b5f37fe430053c1f094cd8679e066",
+        "platform_parsers/betaflight/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/betaflight/blackbox_parser.py": "9f803b249b6f8cc3b05b358d49da451b4b1a5e5e1f12a4d6ac6930c43373912a",
+        "platform_parsers/common/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/common/base_parser.py": "d17c61450803a0363b2864c46334ebaf3233ce3f6cecc925f61c157120ed04a9",
+        "platform_parsers/common/blackbox_evidence.py": "9ce2aa97336fc1fde505b5b28f8fa5617b807fd51628193fd57ae38d16da6449",
+        "platform_parsers/common/evidence_model.py": "37d38196abca75db1363f9504ca22695e767258f0b035d7a0de8a2d1543b422e",
+        "platform_parsers/common/extraction.py": "ac59da1fc335b93e563fe6fa6bba14aee2ce3b18e154aed6a47d8b3b1ac094f4",
+        "platform_parsers/common/platform_detector.py": "14436d92ac206344abc8dc8965d4e424b7a83d6f2391eebf924596b6ae243151",
+        "platform_parsers/common/registry.py": "3f36dc29f8ae15ddf0887c6f12824c53c35da1d2e48ec4324c644407a2e00900",
+        "platform_parsers/emuflight/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "platform_parsers/emuflight/blackbox_decoder.py": "71114b4ea07c9b698504d18ed9adc7afe714eb7922959dc9bc3e9d912108617c",
+        "platform_parsers/emuflight/blackbox_parser.py": "0c7ecdf1187c64607df0673c2e6f206dd66263b38317f236dde0894a31a3c46f",
+        "platform_parsers/inav/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/inav/blackbox_parser.py": "54b9e91ab0711663f52f8d441a67e9819d584c392139999ea73df3093b5c89b1",
+        "platform_parsers/mavlink/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/mavlink/extended_extractors.py": "7d57e4e97e43b3694cb95ff13ecdabcc2b008ead8b5c8e68e8381d94d7efd5f0",
+        "platform_parsers/mavlink/normalized_extractors.py": "d28d43b38655829db4045a2efe7ad479a251e8bc9d1356311afa9892e94c1399",
+        "platform_parsers/mavlink/tlog_parser.py": "e10b296465df195a3c831350cd46137b855f54398bf3488373bc9e3c024825d3",
+        "platform_parsers/px4/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/px4/ulog_parser.py": "9c05cee8d6365b49d2acb756c19b09d95c2123c1a6f679f7bd8a9e7e5f8ad32f",
+        "cli/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cli/main.py": "5bbc47544078e45c8bbc4f9d6150a554c25b611fe97db04d3a10ed38bba625b3",
+        "cli/pipeline.py": "0931a44693c9b9797a705a93a38ef0bb001cad87bbcfe650340c0324e6e57e09",
+        "reporting/evidence_gallery.py": "66c94f5a7becc6b3add62bef6250c6bd37449f4bde7a455749d9bf4402dc6aa4",
+        "reporting/filesystem_timeline_view.py": "abacc68abf6b0d13434556b8ae16fa1e444d2a9afbc8d2067f33c71ab9111321",
+        "reporting/normalized_report.py": "bd7e4172be59eb42c70d2f5e8d7cb419a9e5e5387e05c47695aeb19825e52fcf",
+        "reporting/normalized_report_generator.py": "e25437f95830909e6a24b53d6091c4e649138238f913894e20d6c54144b246f1",
+        "reporting/normalized_visualize.py": "0e994c8e469b26cc88c192885ae8a1186c4104fe47011849d3351db87e70b759",
+        "reporting/report_generator.py": "d7886505f64cea3bdba6610b5582ae5ba4432a5cd72c18f49797ee60c5e3f4bc",
+        "reporting/trajectory_report.py": "276a6a55d6fc13edc6cfce828d07ca63b595c4d950f608a4c60056f710b035e3",
+        "reporting/visualize.py": "18cd78b52ac256173add825d76007f86764268be413d698d78e7f8b95cef3c23"
+      }
+    },
+    "training": {
+      "dependencies": {
+        "python": "3.12.3",
+        "numpy": "2.5.3",
+        "torch": "2.14.0",
+        "pyulog": "1.2.4",
+        "pymavlink": "2.4.50"
+      },
+      "git_revision": "7b6fde2ad2e4c4f11dbcb32088c33c8a6145439c",
+      "source_sha256": {
+        "ml/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "ml/inspect_case.py": "991ae0f59503828b1b93089ad43c02ee01065e6154e64cb44421f20160979e87",
+        "ml/synthetic_trajectory.py": "02bda8c7de730c458854d07a2bf535e7c556ec0202662fea2bb3b875843a3d57",
+        "ml/synthetic_trajectory_dataset.py": "5b96e11ec0a46c73c1754a9076bf8b3b603007c3b37e91cdabf827172b781edc",
+        "ml/trajectory_baseline.py": "d358ab9d4c906a5d32e9fb585563c1c4924ab20974ade73e8e296a677e203f26",
+        "ml/trajectory_benchmark.py": "01f82274020ea0dede4a75910e8251fd1b3ed60c68d0f1ec33fa702a3a18ee31",
+        "ml/trajectory_data.py": "8693eec9e89100d6b223b7b826b7618b37a076c727b4299730c3bfa3a3a8cf5d",
+        "ml/trajectory_dataset.py": "7ca0b618f0e522c947a9cfc947ff792443d922b72049e3f3aa338f8876d2c425",
+        "ml/trajectory_evaluation.py": "f02d7879d5f2d2e7624e01dbf6cc74607bc193eb20df391e2afef8be603d5637",
+        "ml/trajectory_features.py": "f422d5798b11ba40c82fdb591472bc58cea7bfb49b17d80d62ad7d30f6743c5b",
+        "ml/trajectory_gru.py": "378a4d65d19d03d71d3825299d10931a45e84809999b85b79e86a8061e0fb4bd",
+        "ml/trajectory_gru_train.py": "57b17ef60baf9c9769200642a31e336999249f2a870e97f62210a16b92fe8eae",
+        "ml/trajectory_inference.py": "a39fa4af0bd42b090e5bb0519af2facddc3376bacf27420f063c092956763701",
+        "ml/trajectory_preprocessing.py": "6b573ce4caa53a7c9b1e259dc32906019bce30f69fe6acf55ef19220a97563ee",
+        "ml/trajectory_provenance.py": "32d453fa7abbc4ad8e400e2f9bbe977818d0e7019c007fcfad58ecd265ee5d7d",
+        "ml/trajectory_quality.py": "6ac32090361bd444d671cf668c09488419afee77f30182c989fa85b4e070f1fd",
+        "platform_parsers/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/ardupilot/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/ardupilot/dataflash_extensions.py": "a051672485cecd784d2641ec7a242d841ae164700d33fece26fccc4d74f38f16",
+        "platform_parsers/ardupilot/dataflash_parser.py": "d329474a1b4d60d35e7cf9a34c581f0317fadd3296241957fe8bcad797222c94",
+        "platform_parsers/ardupilot/tlog_parser.py": "cbd3f2f443df2313ef7ae22b709920cdfc0b5f37fe430053c1f094cd8679e066",
+        "platform_parsers/betaflight/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/betaflight/blackbox_parser.py": "9f803b249b6f8cc3b05b358d49da451b4b1a5e5e1f12a4d6ac6930c43373912a",
+        "platform_parsers/common/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/common/base_parser.py": "d17c61450803a0363b2864c46334ebaf3233ce3f6cecc925f61c157120ed04a9",
+        "platform_parsers/common/blackbox_evidence.py": "9ce2aa97336fc1fde505b5b28f8fa5617b807fd51628193fd57ae38d16da6449",
+        "platform_parsers/common/evidence_model.py": "37d38196abca75db1363f9504ca22695e767258f0b035d7a0de8a2d1543b422e",
+        "platform_parsers/common/extraction.py": "ac59da1fc335b93e563fe6fa6bba14aee2ce3b18e154aed6a47d8b3b1ac094f4",
+        "platform_parsers/common/platform_detector.py": "14436d92ac206344abc8dc8965d4e424b7a83d6f2391eebf924596b6ae243151",
+        "platform_parsers/common/registry.py": "3f36dc29f8ae15ddf0887c6f12824c53c35da1d2e48ec4324c644407a2e00900",
+        "platform_parsers/emuflight/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "platform_parsers/emuflight/blackbox_decoder.py": "71114b4ea07c9b698504d18ed9adc7afe714eb7922959dc9bc3e9d912108617c",
+        "platform_parsers/emuflight/blackbox_parser.py": "0c7ecdf1187c64607df0673c2e6f206dd66263b38317f236dde0894a31a3c46f",
+        "platform_parsers/inav/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/inav/blackbox_parser.py": "54b9e91ab0711663f52f8d441a67e9819d584c392139999ea73df3093b5c89b1",
+        "platform_parsers/mavlink/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/mavlink/extended_extractors.py": "7d57e4e97e43b3694cb95ff13ecdabcc2b008ead8b5c8e68e8381d94d7efd5f0",
+        "platform_parsers/mavlink/normalized_extractors.py": "d28d43b38655829db4045a2efe7ad479a251e8bc9d1356311afa9892e94c1399",
+        "platform_parsers/mavlink/tlog_parser.py": "e10b296465df195a3c831350cd46137b855f54398bf3488373bc9e3c024825d3",
+        "platform_parsers/px4/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "platform_parsers/px4/ulog_parser.py": "9c05cee8d6365b49d2acb756c19b09d95c2123c1a6f679f7bd8a9e7e5f8ad32f",
+        "cli/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cli/main.py": "72f09d4b27a1caeaacb3fb219feb186eaabb004f0bd0153ca5f9b1ce1b537b5a",
+        "reporting/normalized_report.py": "bd7e4172be59eb42c70d2f5e8d7cb419a9e5e5387e05c47695aeb19825e52fcf",
+        "reporting/normalized_report_generator.py": "4d546285d320d0d0cdec9f76c10b4acbaaa46c72741842098d2de10fffb5a893",
+        "reporting/normalized_visualize.py": "0e994c8e469b26cc88c192885ae8a1186c4104fe47011849d3351db87e70b759",
+        "reporting/report_generator.py": "d7886505f64cea3bdba6610b5582ae5ba4432a5cd72c18f49797ee60c5e3f4bc",
+        "reporting/trajectory_report.py": "276a6a55d6fc13edc6cfce828d07ca63b595c4d950f608a4c60056f710b035e3",
+        "reporting/visualize.py": "18cd78b52ac256173add825d76007f86764268be413d698d78e7f8b95cef3c23"
+      },
+      "data": {
+        "mode": "manifest",
+        "sources": [
+          {
+            "path": "training_repository/repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg",
+            "flight_id": "CASE-001-flight",
+            "mission": "CASE-001",
+            "platform": "PX4",
+            "split": "train",
+            "sha256": "ec47d7c7d6ef9843364714aed421b6e9715c59d529c43761aac274947902d875",
+            "label_kind": "estimator_observation",
+            "scenario": "real_log",
+            "trajectory_source": "native_or_normalized",
+            "coordinate_origin": {
+              "kind": "source_estimator_local_origin"
+            }
+          },
+          {
+            "path": "training_repository/repository/cases/CASE-003/raw/px4_sitl_qgc_mission.ulg",
+            "flight_id": "CASE-003-sitl",
+            "mission": "CASE-003",
+            "platform": "PX4",
+            "split": "validation",
+            "sha256": "e086de00bd3b3f73f5ac8490f17f4aaa4b7af10f9b47ed52f4d2edfbe61271bc",
+            "label_kind": "estimator_observation",
+            "scenario": "real_log",
+            "trajectory_source": "native_or_normalized",
+            "coordinate_origin": {
+              "kind": "source_estimator_local_origin"
+            }
+          },
+          {
+            "path": "training_repository/repository/cases/CASE-004/22_43_32.ulg",
+            "flight_id": "CASE-004-flight",
+            "mission": "CASE-004",
+            "platform": "PX4",
+            "split": "test",
+            "sha256": "abeb6341bec804fb4c291b1914ec10ca2d22d2f200092ee2733f7b2402afb7a3",
+            "label_kind": "estimator_observation",
+            "scenario": "real_log",
+            "trajectory_source": "native_or_normalized",
+            "coordinate_origin": {
+              "kind": "source_estimator_local_origin"
+            }
+          }
+        ],
+        "holdout_group": "mission",
+        "independent_flight_holdout": true,
+        "manifest": {
+          "path": "training_repository/ml/examples/flights.example.json",
+          "sha256": "2ddb98135630176c736e589149a9f7ed102ed8a9febb75268aafe4076fbe868f"
+        }
+      },
+      "experiment_config": {
+        "epochs": 40,
+        "patience": 7,
+        "hidden_size": 64,
+        "layers": 2,
+        "learning_rate": 0.001,
+        "batch_size": 128,
+        "history_steps": 20,
+        "prediction_steps": 10,
+        "interval": 0.1
+      },
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "legacy_trainer_sha256": "d46ae80bfffff742d3db279618fb4c751fdade626f9ee0176a5b58d577ba3606",
+      "benchmark_script_sha256": "406bef46cc6d4fa0c873065c2951bc7959ee21373ce03fa3d7e4a13dc76ae347",
+      "comparison_scope": "Identical current causal windows and labels; legacy training functions and global absolute/relative representations versus current default centered residual_velocity. Not a full old-parser/new-parser comparison."
+    }
+  }
+}

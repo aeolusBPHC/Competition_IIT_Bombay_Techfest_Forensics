@@ -1,0 +1,13 @@
+{
+  "regression": {
+    "collected": 302,
+    "passed": 287,
+    "skipped": 15,
+    "failures": 0,
+    "errors": 0
+  },
+  "real_logs_processed": 7,
+  "explicit_gru_reports": 7,
+  "inference_workflow_tests_passed": 6,
+  "fresh_clone_install_verified": false
+}
