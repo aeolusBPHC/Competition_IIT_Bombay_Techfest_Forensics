@@ -185,7 +185,7 @@ def main():
     summary = batch / "validation_summary.txt"
     text = summary.read_text().replace(
         "Media and trajectory forecasting were not requested because no media inputs or compatible model checkpoint were supplied.",
-        "The initial forensic run used no media or checkpoint. GRU forecast appendices were subsequently added using an existing compatible checkpoint; media analysis remains unrequested.")
+        "GRU forecasts use a compatible saved checkpoint. Media analysis requires a separate media input.")
     text += (f"\nML supplement: {sum(r['status'] == 'passed' for r in ml_results)}/7 GRU reports generated.\n"
              f"Checkpoint: {snapshot}\nCheckpoint SHA-256: {model_digest}\n"
              "Each forecast uses 20 continuous observations to estimate 10 future positions over 1 second.\n"

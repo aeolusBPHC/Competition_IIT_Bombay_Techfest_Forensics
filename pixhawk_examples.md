@@ -25,4 +25,4 @@ GRU was explicitly requested. The checkpoint default selects constant accelerati
 
 The source logs and model weights are not included. See [reports/examples/pixhawk6c_mini/sources.json](reports/examples/pixhawk6c_mini/sources.json) for public download URLs and SHA-256 identifiers. Viewing these examples needs neither the logs nor the checkpoint; reproducing them needs both a supported log and a compatible checkpoint.
 
-Local regression validation: 287 passed, 15 skipped; 302 collected. Checkpoint/inference workflow: 6 passed. These counts describe the prepared local implementation, not an independent fresh-clone run.
+[Validation results](reports/validation_summary.json)

@@ -316,9 +316,8 @@ records that limitation in the report.
 
 ## Testing
 
-Use a virtual environment with PyTorch installed and fetch the actual Git LFS
-evidence before running the complete suite. Test collection checks imports and
-discovers tests; it does not verify that bundled log files contain real data.
+Install the test dependencies in the Python 3.12 virtual environment and fetch
+the binary fixtures through Git LFS before running the suite.
 
 ```bash
 python3 -m pip install -r requirements-dev.txt torch
@@ -326,12 +325,9 @@ git lfs pull
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 MPLBACKEND=Agg python3 -m pytest -q
 ```
 
-Disabling plugin autoload avoids unrelated plugins installed with ROS or other
-tools. `MPLBACKEND=Agg` renders plots without a display. If many PX4/DataFlash
-tests fail with invalid headers or empty records, check whether the inputs are
-still small text files beginning with `version https://git-lfs.github.com/spec/v1`;
-those are pointers rather than the required evidence. Run `git lfs pull` to
-retrieve their contents.
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` isolates pytest from unrelated installed
+plugins. `MPLBACKEND=Agg` renders plots without a display. Git LFS supplies the
+binary log fixtures used by the regression tests.
 
 Optional disk-image tests use `dosfstools` and
 `mtools` alongside Sleuth Kit. Fetch the supported real media samples with:
@@ -350,6 +346,5 @@ Tests requiring unavailable tools or external samples may be skipped.
 - [Parser coverage and normalized evidence](platform_parsers/README.md)
 - [Media extraction, telemetry, and filesystem analysis](MEDIA_EXTRACTOR.md)
 - [Trajectory training, evaluation, and inference](ml/README.md)
-- [Recent commits and changed files](RECENT_CHANGES.md)
 - [Example forensic and GRU reports](reports/examples/pixhawk6c_mini/README.md)
-- [Publishing checklist](PUBLISHING_CHECKLIST.md)
+- [Validation results](reports/validation_summary.json)
