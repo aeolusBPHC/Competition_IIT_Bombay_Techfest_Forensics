@@ -1,959 +1,318 @@
 # Drone Forensics Toolkit
 
-A platform-independent digital forensics and intrusion-analysis framework for unmanned aerial vehicles (UAVs).
+**Acquire drone evidence, reconstruct flight activity, and generate forensic reports across multiple flight-controller platforms.**
 
-The toolkit provides a reproducible workflow for acquiring, preserving, parsing, normalizing, analyzing, and reporting UAV evidence from multiple flight-controller and telemetry ecosystems. It also provides a platform-independent trajectory-processing and machine-learning pipeline for trajectory prediction.
+The toolkit converts flight logs into a shared evidence model for navigation,
+battery, telemetry, commands, vehicle state, and security analysis. Optional
+media examination and trajectory forecasting extend the investigation with
+images, video, removable-storage artifacts, and model-generated estimates.
 
-## Project Overview
+[Architecture](#architecture) · [Quick start](#quick-start) · [Usage](#usage) · [Supported formats](#supported-formats) · [Reports](#reports-and-outputs) · [Testing](#testing) · [Documentation](#documentation)
 
-Modern UAVs generate evidence across multiple layers:
+## Capabilities
 
-* Flight-controller logs
-* Telemetry logs
-* GPS/navigation data
-* Vehicle state
-* Commands and acknowledgements
-* Communication events
-* Firmware/system information
-* Images and video
-* Removable storage
-* Filesystem and disk-image artifacts
+- **Evidence preservation:** SHA-256 hashing, verified acquisition copies, metadata, and chain-of-custody records.
+- **Multi-platform analysis:** automatic format detection and a common evidence representation across supported adapters.
+- **Flight reconstruction:** available GPS, navigation, trajectory, commands, acknowledgements, states, parameters, and events.
+- **Operational analysis:** recorded battery, communications, health, and failsafe information, with explicit coverage limits.
+- **Media forensics:** image/video metadata, SRT sidecars, supported embedded telemetry, frame previews, and filesystem timelines.
+- **Readable reporting:** normalized JSON, HTML reports, available plots, optional media galleries, and output hashes.
+- **Trajectory forecasting:** saved-checkpoint inference using a GRU or physics baseline, with estimates kept separate from recorded evidence.
 
-The purpose of this project is to provide a unified forensic workflow that preserves evidence integrity while supporting heterogeneous UAV platforms.
+## Architecture
 
-The system is designed around a platform-independent normalized evidence representation. Platform-specific parsers and adapters convert native evidence into this common representation before forensic analysis and machine learning.
+Platform adapters translate different log formats into a shared evidence model.
+Analysis and reporting use this common representation; media examination and
+checkpoint-based forecasting provide optional outputs.
 
----
+```mermaid
+flowchart TD
+    Logs["PX4 · ArduPilot · MAVLink<br/>Betaflight · INAV · EmuFlight"]
+    Acquire["Evidence acquisition<br/>SHA-256 · verified copy · custody records"]
+    Parsers["Platform detection and parser adapters"]
+    Evidence["Normalized evidence<br/>Common records · coverage · raw provenance"]
+    Analysis["Forensic analysis<br/>Navigation · operations · commands · findings"]
+    JSON["Normalized JSON report"]
+    HTML["HTML forensic report<br/>Available plots and media gallery"]
+    Media["Optional media examination<br/>Images · video · disk images"]
+    Model["Compatible trajectory checkpoint"]
+    Forecast["Optional trajectory inference"]
+    Appendix["Forecast JSON + HTML appendix<br/>Model estimates"]
 
-## Key Objectives
+    Logs --> Acquire --> Parsers --> Evidence --> Analysis --> JSON --> HTML
+    Media -. "media report" .-> HTML
+    Evidence -. "trajectory observations" .-> Forecast
+    Model --> Forecast --> Appendix
 
-The toolkit currently focuses on:
-
-1. Evidence acquisition and preservation
-2. SHA-256 evidence hashing
-3. Chain-of-custody tracking
-4. Evidence integrity verification
-5. Automatic platform detection
-6. Platform-specific evidence parsing
-7. Normalization of heterogeneous UAV evidence
-8. GPS and navigation extraction
-9. Flight timeline reconstruction
-10. Command/ACK analysis
-11. Trajectory reconstruction
-12. Multimedia and removable-media forensic analysis
-13. Cross-evidence forensic correlation
-14. Platform-independent trajectory feature engineering
-15. Continuity-aware trajectory windowing
-16. Chronological machine-learning evaluation
-17. GRU trajectory prediction
-18. Constant Velocity and Constant Acceleration baselines
-
----
-
-# Architecture
-
-```text
-                         DRONE FORENSICS TOOLKIT
-                                  │
-                                  ▼
-                    ┌───────────────────────────┐
-                    │   EVIDENCE ACQUISITION    │
-                    │                           │
-                    │ Evidence identification   │
-                    │ Evidence collection       │
-                    │ SHA-256 hashing           │
-                    │ Chain of custody          │
-                    │ Provenance                │
-                    └─────────────┬─────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────┐
-                    │   EVIDENCE PROCESSING     │
-                    │                           │
-                    │ PX4 ULog                  │
-                    │ ArduPilot DataFlash/TLog  │
-                    │ Betaflight Blackbox       │
-                    │ iNav Blackbox             │
-                    │ EmuFlight                 │
-                    │ MAVLink TLog              │
-                    │                           │
-                    │ Images / Video            │
-                    │ Filesystem artifacts      │
-                    │ Disk images               │
-                    └─────────────┬─────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────┐
-                    │   NORMALIZED EVIDENCE     │
-                    │                           │
-                    │ timestamps                │
-                    │ position                  │
-                    │ velocity                  │
-                    │ acceleration              │
-                    │ commands/events           │
-                    │ validity metadata         │
-                    │ provenance                │
-                    │ source platform           │
-                    └─────────────┬─────────────┘
-                                  │
-                 ┌────────────────┴────────────────┐
-                 │                                 │
-                 ▼                                 ▼
-      ┌─────────────────────┐          ┌─────────────────────┐
-      │ FORENSIC ANALYSIS   │          │ MEDIA ANALYSIS      │
-      │                     │          │                     │
-      │ Timeline            │          │ Images              │
-      │ Commands/ACKs       │          │ Video               │
-      │ GPS                 │          │ Metadata            │
-      │ Flight state        │          │ Removable media     │
-      │ Trajectory          │          │ Filesystems         │
-      │ Anomalies           │          │ Disk images         │
-      └──────────┬──────────┘          └──────────┬──────────┘
-                 │                                │
-                 └───────────────┬────────────────┘
-                                 │
-                                 ▼
-                    ┌───────────────────────────┐
-                    │ CROSS-EVIDENCE CORRELATION│
-                    │                           │
-                    │ Time correlation          │
-                    │ Flight/media correlation  │
-                    │ Event correlation         │
-                    └─────────────┬─────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────┐
-                    │ PLATFORM-INDEPENDENT ML   │
-                    │                           │
-                    │ Feature engineering       │
-                    │ Continuity handling       │
-                    │ Temporal windowing        │
-                    │ Chronological splitting   │
-                    │ Train-only scaling        │
-                    │                           │
-                    │ GRU                       │
-                    │ Constant Velocity         │
-                    │ Constant Acceleration     │
-                    └─────────────┬─────────────┘
-                                  │
-                                  ▼
-                    ┌───────────────────────────┐
-                    │ TRAJECTORY PREDICTION     │
-                    │ AND FORENSIC FINDINGS     │
-                    └───────────────────────────┘
+    classDef input fill:#eff6ff,stroke:#2563eb,color:#172554
+    classDef processing fill:#ecfdf5,stroke:#059669,color:#064e3b
+    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#2e1065
+    class Logs,Media,Model input
+    class Acquire,Parsers,Evidence,Analysis,Forecast processing
+    class JSON,HTML,Appendix output
 ```
 
----
+## Quick start
 
-# Platform Independence
-
-A major design requirement is that the machine-learning and forensic analysis layers must not depend on a specific flight-controller ecosystem.
-
-Platform-specific evidence is processed through parser/adapter layers.
-
-```text
-PX4 ULog ───────────────┐
-ArduPilot DataFlash ─── ┤
-ArduPilot TLog ─────────┤
-Betaflight Blackbox ────┤
-iNav Blackbox ──────────┤
-EmuFlight ──────────────┤
-MAVLink TLog ───────────┤
-                        ▼
-                Platform Parser
-                        │
-                        ▼
-                NormalizedEvidence
-                        │
-                        ▼
-                NormalizedTrajectory
-                        │
-                        ▼
-              Platform-independent ML
-```
-
-This allows the same trajectory-processing and ML pipeline to operate on evidence originating from different UAV platforms.
-
-For platforms where equivalent native fields are unavailable, the system may derive trajectory information from available evidence.
-
-The system does **not** fabricate unavailable evidence. If a defensible mapping cannot be established, the evidence is reported as insufficient for that analysis.
-
----
-
-# Supported Platforms
-
-| Platform / Format | Evidence Type                 | Processing           |
-| ----------------- | ----------------------------- | -------------------- |
-| PX4               | ULog                          | Native trajectory    |
-| ArduPilot         | DataFlash                     | Native/normalized    |
-| ArduPilot         | TLog                          | Normalized           |
-| Betaflight        | Blackbox                      | Normalized/derived   |
-| iNav              | Blackbox                      | Normalized/derived   |
-| EmuFlight         | Blackbox / supported evidence | Non-native / derived |
-| MAVLink           | TLog                          | Normalized           |
-
-The architecture is extensible through the parser registry.
-
----
-
-# Evidence Integrity
-
-Evidence integrity is established before analytical processing.
-
-```text
-Evidence acquired
-        │
-        ▼
-SHA-256 calculated
-        │
-        ├──────────────► Stored in evidence metadata
-        │
-        └──────────────► Chain-of-custody event
-        │
-        ▼
-Forensic copy created
-        │
-        ▼
-Copy hash verified
-        │
-        ▼
-Evidence analysis
-        │
-        ▼
-Hash re-verification
-        │
-        ├── MATCH    → evidence unchanged
-        │
-        └── MISMATCH → integrity violation
-```
-
-The SHA-256 hash establishes evidence integrity and provenance. It does not replace the analytical representation of the evidence.
-
----
-
-# Forensic Workflow
-
-The general workflow is:
-
-```text
-Acquire
-   ↓
-Hash
-   ↓
-Preserve
-   ↓
-Verify
-   ↓
-Identify platform
-   ↓
-Parse
-   ↓
-Normalize
-   ↓
-Analyze
-   ↓
-Correlate
-   ↓
-Machine Learning
-   ↓
-Generate findings
-   ↓
-Generate report
-```
-
----
-
-# Trajectory Processing
-
-The trajectory subsystem converts platform-specific evidence into a normalized trajectory representation.
-
-A normalized trajectory record may contain:
-
-* Timestamp
-* Position
-* Velocity
-* Acceleration
-* Validity flags
-* Reset counters
-* Source information
-* Platform information
-* Raw provenance
-
-The ML feature representation currently includes:
-
-```text
-x_m
-y_m
-z_m
-vx_m_s
-vy_m_s
-vz_m_s
-speed_m_s
-heading_sin
-heading_cos
-position_valid
-```
-
----
-
-# Continuity-Aware Processing
-
-Trajectory logs may contain:
-
-* Duplicate timestamps
-* Non-increasing timestamps
-* Logging gaps
-* Estimator resets
-* Invalid position intervals
-* Discontinuities
-
-The preprocessing pipeline therefore does not blindly interpolate across discontinuities.
-
-Trajectory windows are separated when:
-
-1. A trajectory segment changes
-2. Timestamps become non-increasing
-3. A timestamp gap exceeds the permitted threshold
-4. A reset/discontinuity creates a new segment
-
-This prevents artificial motion from being introduced during preprocessing.
-
----
-
-# Machine Learning Pipeline
-
-The current trajectory prediction pipeline is:
-
-```text
-Normalized trajectory
-        ↓
-Feature engineering
-        ↓
-Continuity-aware segmentation
-        ↓
-Temporal resampling
-        ↓
-Window generation
-        ↓
-Chronological train/validation/test split
-        ↓
-Training-only normalization
-        ↓
-GRU / CV / CA
-        ↓
-Trajectory prediction
-        ↓
-ADE / FDE evaluation
-```
-
-The current GRU configuration uses:
-
-```text
-History length       = 20 steps
-Prediction horizon   = 10 steps
-Sampling interval    = 0.1 s
-History duration     = 2.0 s
-Prediction duration  = 1.0 s
-```
-
-The GRU is currently implemented as a baseline recurrent model.
-
-Constant Velocity (CV) and Constant Acceleration (CA) models are also used as physics-based baselines.
-
----
-
-# Synthetic Dataset
-
-A synthetic trajectory benchmark is included for controlled evaluation.
-
-Current configuration:
-
-```text
-Trajectories       : 100
-Train              : 70
-Validation         : 15
-Test               : 15
-Duration           : 60 s
-Sampling frequency : 10 Hz
-Interval           : 0.1 s
-Noise              : 0.02 m
-Seed               : 20260927
-```
-
-Scenarios include:
-
-* Accelerate/decelerate
-* 90-degree turn
-* Smooth turn
-* Circle
-* Climb and cruise
-* Figure eight
-* Stop-turn-stop
-* Mixed 3D motion
-
-The synthetic benchmark is used to evaluate the trajectory models under controlled conditions.
-
----
-
-# Case Study: CASE-001
-
-The current PX4 forensic case contains:
-
-```text
-Platform       : PX4 SITL
-Evidence       : PX4 ULog
-Datasets       : 85
-Log duration   : approximately 43 min
-GPS samples    : 70,755
-Trajectory     : native vehicle_local_position
-```
-
-The normalized trajectory contains approximately:
-
-```text
-252,564 usable trajectory samples
-```
-
-The trajectory contains two continuity segments due to estimator/reset handling.
-
-The trajectory pipeline verifies that the previously observed extreme derived velocity artifact is not present in the cleaned native trajectory.
-
-Current maximum usable speed:
-
-```text
-6.022651 m/s
-```
-
-Samples above:
-
-```text
-10 m/s  : 0
-100 m/s : 0
-```
-
----
-
-# Forensic Analysis
-
-The toolkit currently supports:
-
-## GPS extraction
-
-Extracts GPS observations from flight-controller evidence.
-
-Output examples:
-
-```text
-gps_data.csv
-gps_data.json
-```
-
-## Timeline reconstruction
-
-Reconstructs chronological forensic events including:
-
-* Vehicle commands
-* Command acknowledgements
-* GCS connection state changes
-
-## Command analysis
-
-Analyzes:
-
-* Vehicle commands
-* Command IDs
-* Acknowledgements
-* Command timing
-
-## Flight-state analysis
-
-Flight-controller state information can be used to analyze:
-
-* Arming state
-* Navigation state
-* GCS connection state
-* Landing-related state
-
----
-
-# Media Forensics
-
-The toolkit also includes multimedia and removable-media forensic processing.
-
-Supported evidence categories include:
-
-```text
-Images
-Video
-Media metadata
-Removable media
-Filesystems
-Disk images
-```
-
-External forensic tooling currently installed includes:
-
-```text
-Sleuth Kit
-dosfstools
-mtools
-```
-
-Media reports can be added to the normalized HTML case report as an Evidence
-Gallery, including video playback, frame previews and seeking, metadata, hashes,
-and detailed anomaly findings. `--portable-media` copies hash-verified evidence
-beside the HTML report as report derivatives. This presentation link does not itself align media timestamps with a
-flight-controller log or prove that two files belong to the same flight.
-Disk-image reports include a removable-media timeline with labels for the
-filesystem timestamp meanings and their limits. See
-[MEDIA_EXTRACTOR.md](MEDIA_EXTRACTOR.md) for setup and the end-to-end commands.
-
----
-
-# Testing
-
-The project uses `pytest`.
-
-Current verified results include:
-
-```text
-Media tests:
-38 passed, 13 skipped
-
-Full repository:
-226 passed, 13 skipped
-```
-
-Trajectory/windowing tests:
-
-```text
-8 passed
-```
-
-Trajectory + GRU integration tests:
-
-```text
-12 passed
-```
-
-The complete test suite should be run before publishing a new version.
-
----
-
-# Installation
-
-## 1. Clone the repository
+Use Python 3.12, Git, and Git LFS. Run commands from the repository root.
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd drone_forensics
-```
+git clone https://github.com/aeolusBPHC/Competition_IIT_Bombay_Techfest_Forensics.git
+cd Competition_IIT_Bombay_Techfest_Forensics
 
-## 2. Create a virtual environment
+git lfs install
+git lfs pull
 
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-## 3. Upgrade pip
+Then process a supported flight log:
 
 ```bash
-python -m pip install --upgrade pip
+python -m cli.main process --input /path/to/flight.ulg
 ```
 
-## 4. Install Python dependencies
+The command acquires and verifies the log, detects its format, runs normalized
+analysis, generates JSON and HTML reports with available plots, rechecks the
+acquired log's hash, and records the output hashes in a completion manifest.
+The terminal prints the report location.
+
+```mermaid
+flowchart TD
+    Input["Supply a flight log"] --> Validate["Validate path and supported format"]
+    Validate --> Acquire["Acquire forensic copy<br/>Write metadata and custody records"]
+    Acquire --> Verify{"Copy hash matches source?"}
+    Verify -- "No" --> Stop["Stop with an error"]
+    Verify -- "Yes" --> Analyze["Parse, normalize and analyze the copy"]
+    Analyze --> Extras["Run requested media and forecast stages"]
+    Extras --> Report["Generate HTML and available plots"]
+    Report --> Recheck{"Acquired log hash unchanged?"}
+    Recheck -- "No" --> Stop
+    Recheck -- "Yes" --> Manifest["Write completion manifest<br/>Artifact paths and SHA-256 hashes"]
+    Manifest --> Open["Open forensic_report.html"]
+```
+
+Other stage errors also stop processing. A completion manifest is written only
+after every requested stage finishes.
+
+Bundled logs, checkpoints, datasets, MP4s, and archives use Git LFS. Install Git
+LFS before downloading them: a small LFS pointer file is not usable evidence or
+a model. You can also supply your own supported log.
+
+## Usage
+
+### Choose a case and output folder
 
 ```bash
-pip install -r requirements.txt
+python -m cli.main process \
+  --input /path/to/flight.ulg \
+  --case CASE-005 \
+  --output reports/CASE-005/run-01
 ```
 
-If the requirements file has not yet been finalized:
+The case identifier is optional and is generated when omitted. The output folder
+must be new, protecting previous results from replacement. Without `--output`,
+results are saved under `repository/cases/<case>/<evidence>/results/`.
+
+### Include images, video, or a disk image
 
 ```bash
-pip install pyulog pandas numpy matplotlib pytest torch
+python -m cli.main process \
+  --input /path/to/flight.ulg \
+  --case CASE-005 \
+  --media /path/to/card-extraction \
+  --portable-media
 ```
 
----
+`--media` accepts a directory, a media file, or a raw disk image. The HTML gallery
+can display images, browser-playable video, metadata, hashes, and sampled frame
+previews. `--portable-media` copies hash-verified media beside the report; keep
+that assets folder with the HTML when sharing it.
 
-# System Dependencies
+Single media files and disk images receive acquisition copies and custody
+records. Directories are examined in place with per-media-file hashes; this does
+not acquire the whole directory. Recovered disk-image derivatives are retained
+under the results folder.
 
-For media and filesystem analysis:
+```mermaid
+flowchart TD
+    Media["Media file · directory · raw disk image"] --> Inspect["Identify content and collect media files"]
+    Inspect --> Metadata["Image and video metadata<br/>EXIF · XMP · container fields"]
+    Inspect --> Video["Video analysis<br/>Sampled frames · previews · timed telemetry"]
+    Inspect --> Disk["Disk-image analysis<br/>Recovery · filesystem timestamps"]
+    Metadata --> Review["Metadata and telemetry review flags"]
+    Video --> Review
+    Metadata --> JSON["Media JSON report and hashes"]
+    Video --> JSON
+    Disk --> JSON
+    Review --> JSON
+    JSON --> Gallery["HTML evidence gallery<br/>Optional filesystem timeline"]
+    Gallery --> Portable["Optional portable package<br/>HTML + verified media assets"]
+```
+
+Branches depend on the input type, recorded data, and installed tools. Media
+timestamps retain their source clock basis; this flow does not align them with
+the flight log automatically.
+
+For optional media capabilities on Ubuntu/Debian:
 
 ```bash
-sudo apt update
-sudo apt install sleuthkit dosfstools mtools
+sudo apt install ffmpeg libimage-exiftool-perl sleuthkit
 ```
 
-Verify:
+| Tool | Enables |
+| --- | --- |
+| FFmpeg / ffprobe | Video frame indexing, JPEG previews, and GoPro GPMF decoding |
+| ExifTool | Additional metadata and supported DJI embedded telemetry; `djmd` requires version 13.05+ |
+| Sleuth Kit | Disk-image file recovery and filesystem timestamp extraction |
+
+Unavailable tools and undecodable streams are reported in the media results.
+See [MEDIA_EXTRACTOR.md](MEDIA_EXTRACTOR.md) for supported metadata, clock bases,
+review thresholds, and recovery limitations.
+
+### Add a trajectory forecast
+
+Install PyTorch with `python -m pip install torch`, then provide a checkpoint
+trained with the current trajectory pipeline:
 
 ```bash
-which fls
-which fsstat
-which mmls
-which icat
-which mkfs.fat
-which mcopy
+python -m cli.main process \
+  --input /path/to/flight.ulg \
+  --checkpoint /path/to/compatible-model.pt
 ```
 
----
+The forecast is saved as a separate JSON result and HTML appendix. Reporting
+uses the checkpoint's validation-selected GRU, constant-velocity, or
+constant-acceleration predictor; it does not train a new model on each input.
+Insufficient continuous history or an incompatible checkpoint fails the
+requested forecast stage.
 
-# Running the Test Suite
+The training pipeline supports causal resampling, continuity-aware windows,
+train-only scaling, flight-level splits, mission/platform holdouts, repeated
+seeds, and provenance tracking. See [ml/README.md](ml/README.md) for training,
+evaluation, and checkpoint migration. Older checkpoints require retraining.
 
-Run the media tests:
+```mermaid
+flowchart TD
+    subgraph Training["Training and evaluation — run separately"]
+        Flights["Real flights or synthetic trajectories"] --> Split["Chronological or flight-level splits<br/>Training · validation · test"]
+        Split --> Prepare["Continuity-aware causal windows<br/>Fit scalers on training data only"]
+        Prepare --> Compare["Train GRU and compare with CV / CA"]
+        Compare --> Select["Select predictor using validation metrics"]
+        Select --> Checkpoint["Save compatible checkpoint<br/>Preprocessing · predictor · provenance"]
+        Select --> Test["Report held-out test metrics"]
+    end
+    subgraph Inference["Forecasting — optional during report generation"]
+        Log["New supported flight log"] --> History["Latest continuous observed history"]
+        History --> Predict["Apply saved preprocessing and predictor"]
+        Predict --> Forecast["Forecast JSON + HTML appendix<br/>Estimated future positions"]
+    end
+    Checkpoint --> Predict
+```
+
+Held-out test results measure performance; validation results choose the saved
+predictor. Forecasting uses observed history and the saved checkpoint.
+
+### Run stages individually
 
 ```bash
-pytest -q tests/media
+# Acquire and verify evidence.
+python -m acquisition.acquire --input /path/to/flight.ulg --case CASE-005
+
+# Detect, parse, and analyze a log to JSON.
+python -m cli.main normalized-analysis \
+  --input /path/to/flight.ulg --output reports/normalized_report.json
+
+# Render the normalized analysis as HTML.
+python -m reporting.normalized_report_generator \
+  --input reports/normalized_report.json --output reports/forensic_report.html
+
+# Examine media independently of a flight log.
+python -m media.extractor \
+  --input /path/to/media --output reports/media_report.json
+
+# Show all end-to-end processing options.
+python -m cli.main process --help
 ```
 
-Fetch the verified media test samples:
+Use `process` for the complete workflow. The legacy `analyze`, `report`, and
+`case` CLI commands do not provide the same end-to-end processing.
+
+## Supported formats
+
+| Platform / format | Evidence coverage |
+| --- | --- |
+| **PX4 ULog** | GPS, navigation, native trajectory, battery, telemetry, health, commands/ACKs, states, parameters, and events |
+| **ArduPilot DataFlash** | GPS/GPS2, position, EKF trajectory/validity, battery/cells, radio, errors/recovery, commands, modes, parameters, and events |
+| **ArduPilot TLOG** | MAVLink evidence with explicit ArduPilot platform attribution |
+| **Generic MAVLink TLOG** | GPS/navigation, supported local/odometry trajectories, battery, telemetry, health, commands/ACKs, states, and parameters |
+| **Betaflight Blackbox** | Recorded main/GPS/home/slow/event frames, configuration, and sensor/control observations |
+| **INAV Blackbox** | Shared Blackbox evidence plus native navigation trajectories where recorded |
+| **EmuFlight Blackbox** | Recorded Blackbox evidence, configuration, and supported unit conversions |
+
+Coverage depends on firmware, enabled logging, recorded fields, and decoder
+support. Reports retain raw observations and identify missing, unsupported, or
+incompletely decoded evidence. Normalized metric trajectories use **ENU**:
+x east, y north, z up.
+
+See [platform_parsers/README.md](platform_parsers/README.md) for exact mappings
+and field-level limitations. Encrypted DJI app flight records and arbitrary DJI
+flight CSVs are not registered flight-log formats.
+
+## Reports and outputs
+
+| Artifact | Purpose |
+| --- | --- |
+| `metadata.json` | Acquisition source, identifiers, timestamps, and evidence hashes |
+| `chain_of_custody.json` | Acquisition and integrity-verification events |
+| `normalized_report.json` | Normalized evidence, coverage, analysis, provenance, and findings |
+| `forensic_report.html` | Main readable report with available visualizations and linked media |
+| `forensic_report_plots/` | Generated plots |
+| `run_manifest.json` | Completion state, identifiers, artifact paths, and output hashes |
+| `media_report.json` | Optional media metadata, telemetry, anomalies, and filesystem observations |
+| `forensic_report_assets/` | Optional portable media copies |
+| `trajectory_forecast.json` / `.html` | Optional forecast and appendix |
+
+Acquisition metadata and custody records are stored beside the acquired evidence;
+analysis and report artifacts go in the results folder. Normalized/media JSON,
+the main HTML, and the completion manifest have SHA-256 sidecars.
+
+A failed run exits nonzero and retains partial outputs for inspection. The
+completion manifest is written only after all requested stages finish. The HTML
+renderer can still produce a report when individual plots are unavailable and
+records that limitation in the report.
+
+## Interpreting results
+
+- Missing fields remain unavailable; the toolkit does not invent evidence or assume unknown units.
+- A healthy status record is not an active failsafe; inspect the recorded values and active-failure counts.
+- Linking a media report does not establish timestamp alignment or prove that files belong to the same flight.
+- Media anomalies are review flags, not conclusions about alteration; filesystem timestamps retain their semantic limits.
+- Trajectory forecasts are model estimates, separate from recorded observations, without calibrated path prediction intervals.
+
+## Testing
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+ML tests also require PyTorch. Optional disk-image tests use `dosfstools` and
+`mtools` alongside Sleuth Kit. Fetch the supported real media samples with:
 
 ```bash
 bash tools/fetch_media_samples.sh
+MEDIA_SAMPLES_DIR=tests/fixtures/media_samples python -m pytest -q tests/media
 ```
 
-Then:
-
-```bash
-MEDIA_SAMPLES_DIR=tests/fixtures/media_samples pytest -q tests/media
-```
-
-Run the complete test suite:
-
-```bash
-pytest -q
-```
-
----
-
-# Evidence Acquisition
-
-A typical evidence acquisition command is:
-
-```bash
-python -m acquisition.acquire \
-    --input /path/to/evidence.ulg \
-    --case CASE-001
-```
-
-The acquisition stage records:
-
-* Evidence metadata
-* Original SHA-256
-* Forensic-copy SHA-256
-* Integrity verification
-* Chain-of-custody events
-* Evidence provenance
-
----
-
-# Inspecting Evidence
-
-List case evidence:
-
-```bash
-find repository/cases -type f | sort
-```
-
-Inspect metadata:
-
-```bash
-cat repository/cases/CASE-001/<EVIDENCE_ID>/metadata.json
-```
-
-Calculate a SHA-256 hash:
-
-```bash
-sha256sum /path/to/evidence.ulg
-```
-
----
-
-# PX4 ULog Analysis
-
-For a PX4 ULog:
-
-```bash
-python -m cli.main \
-    --input /path/to/evidence.ulg \
-    --case-id CASE-001
-```
-
-The parser identifies PX4 ULog evidence and converts the available records into the normalized evidence model.
-
-The normalized representation can then be consumed by downstream forensic and ML components.
-
----
-
-# Trajectory Dataset Inspection
-
-Build a trajectory dataset from evidence using the trajectory feature pipeline.
-
-The trajectory dataset contains:
-
-```text
-timestamps
-positions
-velocities
-features
-feature_names
-segment_ids
-accelerations
-trajectory_source
-```
-
-For native PX4 trajectory evidence, the source is recorded as:
-
-```text
-native_or_normalized
-```
-
-For defensibly derived non-native trajectory evidence:
-
-```text
-derived
-```
-
----
-
-# GRU Training
-
-The GRU trainer is executed as a Python module:
-
-```bash
-python -m ml.trajectory_gru_train --help
-```
-
-Available options include:
-
-```text
---input INPUT
---synthetic-root SYNTHETIC_ROOT
---case-id CASE_ID
---output OUTPUT
---model-output MODEL_OUTPUT
---epochs EPOCHS
---batch-size BATCH_SIZE
---hidden-size HIDDEN_SIZE
---layers LAYERS
---learning-rate LEARNING_RATE
---patience PATIENCE
---target-mode {absolute,relative}
-```
-
-Example real-evidence training command:
-
-```bash
-python -m ml.trajectory_gru_train \
-    --input repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg \
-    --case-id CASE-001 \
-    --output reports/CASE-001/gru_results.json \
-    --model-output reports/CASE-001/gru_model.pt
-```
-
-Example with a smaller training run:
-
-```bash
-python -m ml.trajectory_gru_train \
-    --input repository/cases/CASE-001/EVD-20260919-175126/evidence/17_02_27.ulg \
-    --case-id CASE-001 \
-    --output reports/CASE-001/gru_results.json \
-    --model-output reports/CASE-001/gru_model.pt \
-    --epochs 5
-```
-
-The trainer:
-
-1. Parses the evidence
-2. Builds the normalized trajectory
-3. Performs chronological splitting
-4. Generates continuity-aware windows
-5. Fits feature normalization on training data only
-6. Fits target normalization on training data only
-7. Trains the GRU
-8. Evaluates validation/test data
-9. Saves the model
-10. Writes evaluation results
-
----
-
-# Important ML Evaluation Rule
-
-The project does not randomly split temporal windows.
-
-Instead:
-
-```text
-EARLIER FLIGHT DATA
-        │
-        ├── Training
-        │
-        ├── Validation
-        │
-        └── Test
-        │
-        ▼
-LATER FLIGHT DATA
-```
-
-This reduces temporal leakage.
-
-Normalization is also fitted exclusively on training data:
-
-```text
-Training data
-     ↓
-fit scaler
-     ↓
-Validation/Test
-     ↓
-transform only
-```
-
----
-
-# Synthetic Training
-
-Synthetic trajectory data can be used to test the ML pipeline independently of a specific UAV platform.
-
-Example:
-
-```bash
-python -m ml.trajectory_gru_train \
-    --synthetic-root repository/synthetic_datasets/trajectory_v1 \
-    --case-id SYNTHETIC-V1 \
-    --output reports/synthetic/gru_results.json \
-    --model-output reports/synthetic/gru_model.pt
-```
-
----
-
-# Reproducibility
-
-The project records:
-
-* Evidence hashes
-* Case identifiers
-* Evidence identifiers
-* Parser/platform information
-* Source trajectory
-* Dataset configuration
-* ML parameters
-* Random seeds where applicable
-* Test results
-* Generated forensic outputs
-
-This allows experiments to be reproduced without coupling the analytical layer to one UAV platform.
-
----
-
----
-
-# Development Status
-
-## Implemented
-
-* Evidence acquisition
-* SHA-256 hashing
-* Forensic-copy verification
-* Chain-of-custody tracking
-* Evidence metadata
-* Platform parser registry
-* PX4 ULog parsing
-* ArduPilot support
-* Betaflight support
-* iNav support
-* EmuFlight support
-* MAVLink TLog support
-* Normalized evidence representation
-* Native trajectory extraction
-* Derived trajectory support
-* GPS extraction
-* Timeline reconstruction
-* Command/ACK analysis
-* Media forensic processing
-* Filesystem/disk-image tooling
-* Continuity-aware trajectory preprocessing
-* Temporal trajectory windowing
-* Chronological ML splitting
-* Training-only normalization
-* GRU trajectory prediction
-* Constant Velocity baseline
-* Constant Acceleration baseline
-* Automated test suite
-
-## In Progress / Future Work
-
-* Multi-flight leave-one-flight-out evaluation
-* Larger cross-platform trajectory benchmark
-* Uncertainty-aware trajectory prediction
-* More advanced sequence models
-* Additional anomaly/detection models
-* Expanded cross-evidence correlation
-* More platform-specific forensic mappings
-* Additional real-world datasets
-
----
-
-# Validation Summary
-
-The current repository has been validated using automated tests.
-
-Latest full-suite result:
-
-```text
-226 passed, 13 skipped
-```
-
-Media-specific validation:
-
-```text
-38 passed, 13 skipped
-```
-
-Trajectory/windowing validation:
-
-```text
-8 passed
-```
-
-Trajectory + GRU integration validation:
-
-```text
-12 passed
-```
-
-These results indicate that the currently implemented acquisition, parser, media, trajectory-processing, and ML integration components are passing their automated validation suite.
-
----
-
-# Project Philosophy
-
-The project follows four principles:
-
-### 1. Evidence first
-
-Evidence must be preserved and integrity-verified before analysis.
-
-### 2. Platform independence
-
-Forensic analysis and machine learning should operate on normalized representations rather than platform-specific fields.
-
-### 3. No fabricated evidence
-
-When the available evidence cannot support a mapping or conclusion, the system reports insufficient evidence instead of generating unsupported values.
-
-### 4. Reproducibility
-
-Every important processing stage should be executable through documented commands and validated through automated tests.
-
----
-
-# License
-
-MIT License.
-
----
-
-
-
+Tests requiring unavailable tools or external samples may be skipped.
+`ml/requirements.txt` records the dependency versions used for ML validation.
+
+## Documentation
+
+- [Parser coverage and normalized evidence](platform_parsers/README.md)
+- [Media extraction, telemetry, and filesystem analysis](MEDIA_EXTRACTOR.md)
+- [Trajectory training, evaluation, and inference](ml/README.md)
+- [Recent commits and changed files](RECENT_CHANGES.md)
