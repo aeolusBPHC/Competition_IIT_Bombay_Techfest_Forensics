@@ -1,0 +1,468 @@
+{
+  "candidate_workflow_status": "passed",
+  "github_checked_commit": "59fdff5cb6bf31f7ff84782728e80e23aac9196b",
+  "live_github_readme_status": "fails: requirements.txt missing; local source updates required",
+  "verification_mode": "Fresh GitHub clone, local source overlay, new Python 3.12 virtual environment, fresh dependencies; ROS PYTHONPATH cleared",
+  "setup_steps": [
+    {
+      "stage": "create_virtual_environment",
+      "command": [
+        "python3",
+        "-m",
+        "venv",
+        ".venv"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 2.5
+    },
+    {
+      "stage": "live_github_requirements_expected_failure",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "returncode": 1,
+      "expected_returncode": 1,
+      "elapsed_s": 0.36
+    },
+    {
+      "stage": "install_lfs_repository_configuration",
+      "command": [
+        "git",
+        "lfs",
+        "install",
+        "--local"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 0.05
+    },
+    {
+      "stage": "git_lfs_pull",
+      "command": [
+        "git",
+        "lfs",
+        "pull"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 5.31
+    },
+    {
+      "stage": "git_lfs_verify_objects",
+      "command": [
+        "git",
+        "lfs",
+        "fsck",
+        "--objects"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 1.51
+    },
+    {
+      "stage": "install_core_requirements",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 170.52
+    },
+    {
+      "stage": "install_cpu_pytorch",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "torch",
+        "--index-url",
+        "https://download.pytorch.org/whl/cpu"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "elapsed_s": 80.9
+    }
+  ],
+  "serial_command_steps": [
+    {
+      "stage": "activate_virtual_environment",
+      "command": [
+        "bash",
+        "-c",
+        "source .venv/bin/activate && python3 -c 'import sys; print(sys.executable); assert sys.prefix.endswith('\"'\"'/.venv'\"'\"')'"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.02,
+      "log": "<verification-root>/logs/activate_virtual_environment.log"
+    },
+    {
+      "stage": "prepare_synthetic_media_fixture",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-c",
+        "from PIL import Image; Image.new('RGB',(80,60),'blue').save('readme-inputs/card-extraction/fixture.png')"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.07,
+      "log": "<verification-root>/logs/prepare_synthetic_media_fixture.log"
+    },
+    {
+      "stage": "quick_start_process",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "process",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 9.78,
+      "log": "<verification-root>/logs/quick_start_process.log"
+    },
+    {
+      "stage": "named_case_process",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "process",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--case",
+        "CASE-005",
+        "--output",
+        "reports/CASE-005/run-01"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 9.47,
+      "log": "<verification-root>/logs/named_case_process.log"
+    },
+    {
+      "stage": "portable_media_process",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "process",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--case",
+        "CASE-005",
+        "--media",
+        "<isolated-checkout>/readme-inputs/card-extraction",
+        "--portable-media"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 10.16,
+      "log": "<verification-root>/logs/portable_media_process.log"
+    },
+    {
+      "stage": "documented_cpu_pytorch_install",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "torch",
+        "--index-url",
+        "https://download.pytorch.org/whl/cpu"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.68,
+      "log": "<verification-root>/logs/documented_cpu_pytorch_install.log"
+    },
+    {
+      "stage": "checkpoint_process",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "process",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--checkpoint",
+        "<isolated-checkout>/readme-inputs/compatible-model.pt"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 13.86,
+      "log": "<verification-root>/logs/checkpoint_process.log"
+    },
+    {
+      "stage": "explicit_gru_forecast",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "trajectory-predict",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--checkpoint",
+        "<isolated-checkout>/readme-inputs/compatible-model.pt",
+        "--predictor",
+        "gru",
+        "--output",
+        "reports/ml/predictions.json",
+        "--report",
+        "reports/ml/ml_report.html"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 4.16,
+      "log": "<verification-root>/logs/explicit_gru_forecast.log"
+    },
+    {
+      "stage": "standalone_acquisition",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "acquisition.acquire",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--case",
+        "CASE-005"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.07,
+      "log": "<verification-root>/logs/standalone_acquisition.log"
+    },
+    {
+      "stage": "standalone_normalized_analysis",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "normalized-analysis",
+        "--input",
+        "<isolated-checkout>/readme-inputs/flight.ulg",
+        "--output",
+        "reports/normalized_report.json"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 4.57,
+      "log": "<verification-root>/logs/standalone_normalized_analysis.log"
+    },
+    {
+      "stage": "standalone_html_report",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "reporting.normalized_report_generator",
+        "--input",
+        "reports/normalized_report.json",
+        "--output",
+        "reports/forensic_report.html"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 3.83,
+      "log": "<verification-root>/logs/standalone_html_report.log"
+    },
+    {
+      "stage": "standalone_media_report",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "media.extractor",
+        "--input",
+        "<isolated-checkout>/readme-inputs/card-extraction",
+        "--output",
+        "reports/media_report.json"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.11,
+      "log": "<verification-root>/logs/standalone_media_report.log"
+    },
+    {
+      "stage": "process_help",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "cli.main",
+        "process",
+        "--help"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.05,
+      "log": "<verification-root>/logs/process_help.log"
+    },
+    {
+      "stage": "install_test_requirements",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements-dev.txt",
+        "torch"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 7.33,
+      "log": "<verification-root>/logs/install_test_requirements.log"
+    },
+    {
+      "stage": "documented_repeat_lfs_pull",
+      "command": [
+        "git",
+        "lfs",
+        "pull"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.05,
+      "log": "<verification-root>/logs/documented_repeat_lfs_pull.log"
+    },
+    {
+      "stage": "full_regression_suite",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--junitxml=reports/readme-regression.xml"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 232.12,
+      "log": "<verification-root>/logs/full_regression_suite.log"
+    },
+    {
+      "stage": "fetch_hash_verified_media_samples",
+      "command": [
+        "bash",
+        "tools/fetch_media_samples.sh"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.11,
+      "log": "<verification-root>/logs/fetch_hash_verified_media_samples.log"
+    },
+    {
+      "stage": "optional_real_media_tests",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-rs",
+        "tests/media",
+        "--junitxml=reports/readme-media.xml"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 2.68,
+      "log": "<verification-root>/logs/optional_real_media_tests.log"
+    },
+    {
+      "stage": "installed_dependency_versions",
+      "command": [
+        "<isolated-checkout>/.venv/bin/python3",
+        "-m",
+        "pip",
+        "freeze"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 0.39,
+      "log": "<verification-root>/logs/installed_dependency_versions.log"
+    }
+  ],
+  "test_results": {
+    "readme-regression.xml": {
+      "tests": 302,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 14,
+      "passed": 288
+    },
+    "readme-media.xml": {
+      "tests": 56,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 1,
+      "passed": 55
+    }
+  },
+  "installed_dependencies": {
+    "contourpy": "1.4.0",
+    "cycler": "0.12.1",
+    "fastcrc": "0.5.0",
+    "filelock": "4.2.4",
+    "fonttools": "4.69.1",
+    "fsspec": "2026.9.0",
+    "iniconfig": "2.3.1",
+    "Jinja2": "3.1.6",
+    "kiwisolver": "1.5.1",
+    "lxml": "6.1.3",
+    "MarkupSafe": "3.0.3",
+    "matplotlib": "3.11.2",
+    "mpmath": "1.3.0",
+    "networkx": "3.7",
+    "numpy": "2.5.5",
+    "packaging": "26.4",
+    "pillow": "13.0.0",
+    "pluggy": "1.7.0",
+    "Pygments": "2.21.0",
+    "pymavlink": "2.4.50",
+    "pyparsing": "3.3.3",
+    "pytest": "9.2.0",
+    "python-dateutil": "4.0.0",
+    "pyulog": "1.4.0",
+    "setuptools": "78.1.0",
+    "sympy": "1.14.0",
+    "torch": "2.15.0+cpu",
+    "typing_extensions": "4.16.0",
+    "tzdata": "2026.6"
+  },
+  "system_packages": "dosfstools 4.2-1.1build1\nffmpeg 7:6.1.1-3ubuntu5\nlibimage-exiftool-perl 12.76+dfsg-1\nmtools 4.0.43-1build1\nsleuthkit 4.12.1+dfsg-1.1ubuntu2\n",
+  "lfs_objects_verified": true,
+  "lfs_objects_reused_from_hash_addressed_local_cache": true,
+  "placeholder_inputs": "Real offboard-no-GPS Pixhawk 6C Mini ULog, synthetic PNG fixture, compatible saved GRU checkpoint",
+  "tested_source_sha256": {
+    "README.md": "f261831f12e9aeb29abccfc96d0f28c0116102ad15235add4cfe0ac244841000",
+    "requirements.txt": "886e742e4273d8aece986c9a4cecce51d65da5faa53800ea8769022bc28fed7c",
+    "requirements-dev.txt": "6603d61524204b7e415c2d1303e6ee817871ec912963584b6d11611039ca4b8c",
+    "acquisition/acquire.py": "31911bd8ec46f8c721bcf2de180fc0d0084b8fd95fae4ce915027f9e7f80fe64",
+    "cli/main.py": "5bbc47544078e45c8bbc4f9d6150a554c25b611fe97db04d3a10ed38bba625b3",
+    "cli/pipeline.py": "0931a44693c9b9797a705a93a38ef0bb001cad87bbcfe650340c0324e6e57e09",
+    "platform_parsers/mavlink/tlog_parser.py": "e10b296465df195a3c831350cd46137b855f54398bf3488373bc9e3c024825d3",
+    "media/extractor.py": "17b184afa515b2b30c7bbf34b0088553f3b72aa19facdd1fbc782455e1daa85d",
+    "reporting/evidence_gallery.py": "66c94f5a7becc6b3add62bef6250c6bd37449f4bde7a455749d9bf4402dc6aa4",
+    "tests/test_cli_process.py": "cde72d8261f6e05c9db0ef75e9624c2087164a24331ebdd97a6fbff0b6c67832",
+    "tools/process_pixhawk6c_mini_logs.py": "5a93dbbfe277c915fd8efa5473e012c9f1ca46a1e8775fd5e9757c112a327610",
+    "tools/add_pixhawk6c_mini_ml_reports.py": "93b8a9fe45b92782e9a64ddf2d977e58aab627cb59283b8e6a15f4bc71935097"
+  },
+  "remaining_skips": "Optional GoPro Hero5 sample not supplied; initial full suite also skipped media samples fetched and tested in the later media stage",
+  "warnings": [
+    "ExifTool 12.76 is installed; DJI djmd requires 13.05+ as documented."
+  ],
+  "privileged_installation": "System package prerequisites were checked; the assistant did not run a privileged installation.",
+  "published_by_agent": false,
+  "dependency_consistency_check": "python3 -m pip check: No broken requirements found.",
+  "clone_verified": true
+}

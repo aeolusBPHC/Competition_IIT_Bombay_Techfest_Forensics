@@ -60,18 +60,18 @@ Use Python 3.12, Git, and Git LFS. Run commands from the repository root.
 git clone https://github.com/aeolusBPHC/Competition_IIT_Bombay_Techfest_Forensics.git
 cd Competition_IIT_Bombay_Techfest_Forensics
 
-git lfs install
+git lfs install --local
 git lfs pull
 
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 Then process a supported flight log:
 
 ```bash
-python -m cli.main process --input /path/to/flight.ulg
+python3 -m cli.main process --input /path/to/flight.ulg
 ```
 
 The command acquires and verifies the log, detects its format, runs normalized
@@ -106,7 +106,7 @@ a model. You can also supply your own supported log.
 ### Choose a case and output folder
 
 ```bash
-python -m cli.main process \
+python3 -m cli.main process \
   --input /path/to/flight.ulg \
   --case CASE-005 \
   --output reports/CASE-005/run-01
@@ -119,7 +119,7 @@ results are saved under `repository/cases/<case>/<evidence>/results/`.
 ### Include images, video, or a disk image
 
 ```bash
-python -m cli.main process \
+python3 -m cli.main process \
   --input /path/to/flight.ulg \
   --case CASE-005 \
   --media /path/to/card-extraction \
@@ -174,11 +174,17 @@ review thresholds, and recovery limitations.
 
 ### Add a trajectory forecast
 
-Install PyTorch with `python -m pip install torch`, then provide a checkpoint
-trained with the current trajectory pipeline:
+Install PyTorch for CPU inference, then provide a checkpoint trained with the
+current trajectory pipeline. A GPU is optional.
 
 ```bash
-python -m cli.main process \
+python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+Run forecasting with the checkpoint's validation-selected predictor:
+
+```bash
+python3 -m cli.main process \
   --input /path/to/flight.ulg \
   --checkpoint /path/to/compatible-model.pt
 ```
@@ -188,6 +194,22 @@ uses the checkpoint's validation-selected GRU, constant-velocity, or
 constant-acceleration predictor; it does not train a new model on each input.
 Insufficient continuous history or an incompatible checkpoint fails the
 requested forecast stage.
+
+To explicitly run the neural-network predictor, generate a GRU appendix:
+
+```bash
+python3 -m cli.main trajectory-predict \
+  --input /path/to/flight.ulg \
+  --checkpoint /path/to/compatible-model.pt \
+  --predictor gru \
+  --output reports/ml/predictions.json \
+  --report reports/ml/ml_report.html
+```
+
+Replace every `/path/to/...` example with an existing file. The checkpoint must
+be compatible with the current feature contract; the historical bundled `.pt`
+files are not interchangeable with current checkpoints. Forecasting and the
+complete test suite require PyTorch, while core forensic reporting does not.
 
 The training pipeline supports causal resampling, continuity-aware windows,
 train-only scaling, flight-level splits, mission/platform holdouts, repeated
@@ -219,22 +241,22 @@ predictor. Forecasting uses observed history and the saved checkpoint.
 
 ```bash
 # Acquire and verify evidence.
-python -m acquisition.acquire --input /path/to/flight.ulg --case CASE-005
+python3 -m acquisition.acquire --input /path/to/flight.ulg --case CASE-005
 
 # Detect, parse, and analyze a log to JSON.
-python -m cli.main normalized-analysis \
+python3 -m cli.main normalized-analysis \
   --input /path/to/flight.ulg --output reports/normalized_report.json
 
 # Render the normalized analysis as HTML.
-python -m reporting.normalized_report_generator \
+python3 -m reporting.normalized_report_generator \
   --input reports/normalized_report.json --output reports/forensic_report.html
 
 # Examine media independently of a flight log.
-python -m media.extractor \
+python3 -m media.extractor \
   --input /path/to/media --output reports/media_report.json
 
 # Show all end-to-end processing options.
-python -m cli.main process --help
+python3 -m cli.main process --help
 ```
 
 Use `process` for the complete workflow. The legacy `analyze`, `report`, and
@@ -294,17 +316,30 @@ records that limitation in the report.
 
 ## Testing
 
+Use a virtual environment with PyTorch installed and fetch the actual Git LFS
+evidence before running the complete suite. Test collection checks imports and
+discovers tests; it does not verify that bundled log files contain real data.
+
 ```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
+python3 -m pip install -r requirements-dev.txt torch
+git lfs pull
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 MPLBACKEND=Agg python3 -m pytest -q
 ```
 
-ML tests also require PyTorch. Optional disk-image tests use `dosfstools` and
+Disabling plugin autoload avoids unrelated plugins installed with ROS or other
+tools. `MPLBACKEND=Agg` renders plots without a display. If many PX4/DataFlash
+tests fail with invalid headers or empty records, check whether the inputs are
+still small text files beginning with `version https://git-lfs.github.com/spec/v1`;
+those are pointers rather than the required evidence. Run `git lfs pull` to
+retrieve their contents.
+
+Optional disk-image tests use `dosfstools` and
 `mtools` alongside Sleuth Kit. Fetch the supported real media samples with:
 
 ```bash
 bash tools/fetch_media_samples.sh
-MEDIA_SAMPLES_DIR=tests/fixtures/media_samples python -m pytest -q tests/media
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 MPLBACKEND=Agg \
+MEDIA_SAMPLES_DIR=tests/fixtures/media_samples python3 -m pytest -q tests/media
 ```
 
 Tests requiring unavailable tools or external samples may be skipped.
@@ -315,4 +350,6 @@ Tests requiring unavailable tools or external samples may be skipped.
 - [Parser coverage and normalized evidence](platform_parsers/README.md)
 - [Media extraction, telemetry, and filesystem analysis](MEDIA_EXTRACTOR.md)
 - [Trajectory training, evaluation, and inference](ml/README.md)
-
+- [Recent commits and changed files](RECENT_CHANGES.md)
+- [Example forensic and GRU reports](reports/examples/pixhawk6c_mini/README.md)
+- [Publishing checklist](PUBLISHING_CHECKLIST.md)

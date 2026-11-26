@@ -317,6 +317,7 @@ class MediaExtractor:
             "generated_utc": started,
             "input": {"path": self.input_path, "type": self.input_type, "sha256": input_hash},
             "media_present": bool(items),
+            "recovered_root": self.keep_recovered if self.input_type == "disk_image" else None,
             "summary": {
                 "media_count": len(items),
                 "by_kind": counts,

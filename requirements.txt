@@ -1,0 +1,6 @@
+# Core log analysis, HTML plots, and media metadata extraction.
+numpy
+pyulog
+pymavlink
+matplotlib
+Pillow

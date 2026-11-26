@@ -1,0 +1,52 @@
+GitHub changes: November 20-25, 2026 (UTC)
+46 recent commits, newest first; previous work was September 27, 2026.
+Each numbered line explains one commit already on GitHub; local unpushed README/runner changes are excluded.
+The November 25 merge occurred November 26 at 00:43 IST.
+Reviewed through commit 2e691e5e9fa50db360fb408f7772630cd4d327dd.
+
+01. 2026-11-25 | 2e691e5 | Merged PR #1, bringing the media-forensics contribution into the main branch.
+02. 2026-11-25 | bc85573 | Added video frame previews, GoPro/DJI telemetry decoding, media anomaly flags, filesystem timelines and an HTML evidence gallery.
+03. 2026-11-21 | 9609158 | Added end-to-end tests for trajectory generation, flight manifests, model training, checkpoint loading and inference.
+04. 2026-11-21 | dde34ba | Added tests for synthetic trajectories, parsing, continuity handling and coordinate transformations.
+05. 2026-11-21 | 7d90547 | Added an HTML report generator for trajectory forecasts and their limitations.
+06. 2026-11-21 | 2b96767 | Added an example flight manifest showing how to specify training, validation and test flights.
+07. 2026-11-21 | 5d30365 | Recorded the Python dependency versions used to validate the ML pipeline.
+08. 2026-11-21 | 1346274 | Added documentation covering trajectory data, training, evaluation, checkpoints and prediction commands.
+09. 2026-11-21 | c59763a | Added provenance tracking for source hashes, runtime versions, code and experiment configuration.
+10. 2026-11-21 | 9118ba5 | Added saved-checkpoint inference that writes trajectory predictions and an optional HTML appendix.
+11. 2026-11-21 | 193ca8d | Added trajectory error metrics and evaluation-summary utilities.
+12. 2026-11-21 | f8aa542 | Added feature and target standardization plus coordinate transformations for trajectory learning.
+13. 2026-11-21 | 7014660 | Added shared loading of real flight logs and synthetic trajectory observations.
+14. 2026-11-21 | f836784 | Reworked temporal window creation to respect observation timing and trajectory continuity.
+15. 2026-11-21 | bba0129 | Reworked trajectory-quality subset creation to preserve the shared dataset structure.
+16. 2026-11-21 | a31302a | Rebuilt model training, evaluation, validation-based GRU/CV/CA selection and checkpoint saving.
+17. 2026-11-21 | c0d4d52 | Refactored trajectory dataset creation and improved validation and error handling.
+18. 2026-11-21 | fd66eda | Expanded trajectory features and standardized dataset structure, continuity and provenance fields.
+19. 2026-11-21 | bbd01c6 | Updated synthetic-dataset loading to use the shared trajectory data contract.
+20. 2026-11-21 | 4b0b55b | Expanded synthetic trajectory generation with configurable observation noise and separate clean targets.
+21. 2026-11-20 | 5053602 | Added regression tests for extended DataFlash and MAVLink TLOG evidence extraction.
+22. 2026-11-20 | 1d18de3 | Added MAVLink helpers for extra GPS, trajectories, battery data, health, parameters and raw observations.
+23. 2026-11-20 | e296ae7 | Added reusable DataFlash extraction for EKF trajectories, battery cells, telemetry and additional source evidence.
+24. 2026-11-20 | 54ce0a2 | Added shared Blackbox evidence extraction to reduce duplicated parser logic.
+25. 2026-11-20 | 9224543 | Added extraction-coverage summaries showing available fields, missing categories and decoder limitations.
+26. 2026-11-20 | bb1dd02 | Documented parser mappings, evidence availability, raw provenance and normalized-analysis usage.
+27. 2026-11-20 | 4a247c9 | Created the initial parser README file, subsequently expanded by the next documentation commit.
+28. 2026-11-20 | 3a59393 | Updated MAVLink extractor tests to check the revised normalized evidence fields.
+29. 2026-11-20 | 94eeaa7 | Strengthened parser tests for parameter extraction.
+30. 2026-11-20 | 269318a | Updated tests for GPS extraction and categories unavailable in a source format.
+31. 2026-11-20 | d7890cd | Added CLI regression checks for navigation, trajectory and battery record counts.
+32. 2026-11-20 | 939d40c | Expanded Betaflight tests to verify configuration and parameter extraction.
+33. 2026-11-20 | c23970c | Made normalized JSON reporting include evidence categories dynamically.
+34. 2026-11-20 | 21f04c9 | Updated PX4 trajectory extraction and added retention of additional source evidence.
+35. 2026-11-20 | f755d5e | Refactored EmuFlight parsing to use shared extraction logic and revised normalized fields.
+36. 2026-11-20 | 9ed6f35 | Added representative decoding-error samples to EmuFlight diagnostics.
+37. 2026-11-20 | 834ca49 | Refactored INAV parsing around shared Blackbox extraction helpers.
+38. 2026-11-20 | 1ae163e | Refactored Betaflight parsing around shared Blackbox extraction helpers.
+39. 2026-11-20 | 3db21bf | Reworked shared MAVLink telemetry and failsafe normalization.
+40. 2026-11-20 | b9bf592 | Expanded the MAVLink TLOG module, but accidentally replaced its generic parser class with an ArduPilot class.
+41. 2026-11-20 | 8c62357 | Updated the ArduPilot TLOG parser to use the shared MAVLink decoder.
+42. 2026-11-20 | aa465e5 | Connected the DataFlash parser to extended trajectory, health and source-evidence extraction.
+43. 2026-11-20 | bdb7589 | Added fields to the shared telemetry and failsafe record models.
+44. 2026-11-20 | e3a4bf1 | Added a common parser hook for extracting additional evidence beyond the standard categories.
+45. 2026-11-20 | 442e883 | Added the trajectory-predict CLI subcommand for inference with a saved checkpoint.
+46. 2026-11-20 | d8a6122 | Added trajectory-record counts and separate active-failsafe counts to normalized analysis.

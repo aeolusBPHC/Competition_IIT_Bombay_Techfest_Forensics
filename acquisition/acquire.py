@@ -4,6 +4,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 
 def calculate_sha256(file_path, chunk_size=1024 * 1024):
@@ -66,7 +67,7 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
     acquisition_time = utc_timestamp()
 
     evidence_id = (
-        f"EVD-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+        f"EVD-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:12]}"
     )
 
     case_directory = (
@@ -76,7 +77,7 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
     evidence_directory = case_directory / "evidence"
     evidence_directory.mkdir(
         parents=True,
-        exist_ok=True
+        exist_ok=False
     )
 
     original_hash = calculate_sha256(input_file)

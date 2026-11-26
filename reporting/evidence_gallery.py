@@ -37,6 +37,15 @@ def find_media_report(candidates: list[Path]) -> tuple[dict[str, Any] | None, Pa
 
 def _resolve_media_path(media_report: dict[str, Any], report_path: Path,
                         item_path: str) -> Path | None:
+    # Disk-image evidence paths preserve partition identity, not host paths.
+    recovered = media_report.get("recovered_root")
+    if recovered and item_path.startswith("partition@"):
+        partition, _, relative = item_path.partition("/")
+        offset = partition.removeprefix("partition@")
+        root = (Path(recovered) / f"p{offset}_all").resolve()
+        target = (root / relative).resolve()
+        if target.is_relative_to(root) and target.is_file():
+            return target
     path = Path(item_path).expanduser()
     if path.is_absolute() and path.is_file():
         return path.resolve()

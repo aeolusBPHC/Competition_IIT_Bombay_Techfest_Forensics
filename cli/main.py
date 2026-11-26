@@ -473,97 +473,8 @@ def command_case(args):
 # ============================================================
 
 def command_process(args):
-
-    print("=" * 70)
-    print("DRONE FORENSICS TOOLKIT - END-TO-END PROCESSING")
-    print("=" * 70)
-
-    source = Path(args.input).expanduser().resolve()
-
-    if not source.exists():
-        raise FileNotFoundError(
-            f"Input evidence does not exist:\n{source}"
-        )
-
-    if not source.is_file():
-        raise ValueError(
-            f"Input evidence is not a file:\n{source}"
-        )
-
-    print(f"\nSource evidence : {source}")
-    print(f"Case ID         : {args.case}")
-
-    # --------------------------------------------------------
-    # STEP 1 — ACQUISITION
-    # --------------------------------------------------------
-
-    print("\n" + "=" * 70)
-    print("[1/4] EVIDENCE ACQUISITION")
-    print("=" * 70)
-
-    from acquisition.acquire import acquire_evidence
-
-    metadata = acquire_evidence(
-        input_file=args.input,
-        case_id=args.case
-    )
-
-    evidence_id = metadata["evidence_id"]
-
-    print("\n[OK] Evidence acquired.")
-    print(f"[OK] Evidence ID: {evidence_id}")
-
-    # --------------------------------------------------------
-    # STEP 2 — ANALYSIS
-    # --------------------------------------------------------
-
-    print("\n" + "=" * 70)
-    print("[2/4] EVIDENCE ANALYSIS")
-    print("=" * 70)
-
-    print("\n[INFO] Running forensic analysis modules...")
-
-    # Analysis modules will be connected here.
-    print("[INFO] ULog parsing")
-    print("[INFO] GPS extraction")
-    print("[INFO] Navigation integrity")
-    print("[INFO] Command/ACK analysis")
-    print("[INFO] State reconstruction")
-    print("[INFO] Security indicators")
-
-    # --------------------------------------------------------
-    # STEP 3 — REPORT
-    # --------------------------------------------------------
-
-    print("\n" + "=" * 70)
-    print("[3/4] FORENSIC REPORT")
-    print("=" * 70)
-
-    print("[INFO] Generating forensic report...")
-
-    # Report generator will be connected here.
-
-    # --------------------------------------------------------
-    # STEP 4 — SUMMARY
-    # --------------------------------------------------------
-
-    print("\n" + "=" * 70)
-    print("[4/4] CASE PROCESSING SUMMARY")
-    print("=" * 70)
-
-    print(f"\nCase ID       : {args.case}")
-    print(f"Evidence ID   : {evidence_id}")
-    print("Acquisition   : COMPLETE")
-    print("Analysis      : SELECTED")
-    print("Reporting     : SELECTED")
-
-    print("\n[WARNING]")
-    print("The end-to-end orchestration framework is active,")
-    print("but analysis modules have not yet been fully wired")
-    print("into the process command.")
-
-    print("\nNext milestone:")
-    print("Connect each analysis module to this pipeline.")
+    from cli.pipeline import process_evidence
+    return process_evidence(args)
 
 
 # ============================================================
@@ -721,14 +632,15 @@ def build_parser():
     process.add_argument(
         "--input",
         required=True,
-        help="Path to source ULog evidence"
+        help="Path to a supported flight log"
     )
 
-    process.add_argument(
-        "--case",
-        required=True,
-        help="Case identifier"
-    )
+    process.add_argument("--case", help="Case identifier (generated if omitted)")
+    process.add_argument("--output", help="New directory for this run's reports")
+    process.add_argument("--media", help="Optional media file, directory, or disk image")
+    process.add_argument("--portable-media", action="store_true",
+                         help="Copy verified media beside the HTML report")
+    process.add_argument("--checkpoint", help="Optional trained trajectory checkpoint")
 
     process.set_defaults(func=command_process)
 
