@@ -1,0 +1,3 @@
+# Optional PDF export; core HTML/JSON reporting does not need this renderer.
+-r requirements.txt
+weasyprint>=68,<69

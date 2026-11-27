@@ -503,6 +503,7 @@ def build_parser():
     forecast.add_argument("--checkpoint", required=True)
     forecast.add_argument("--output", required=True)
     forecast.add_argument("--report")
+    forecast.add_argument("--pdf", action="store_true", help="Also export --report as PDF (requires --report)")
     forecast.add_argument("--case-id")
     forecast.add_argument("--at-time", type=float)
     forecast.add_argument("--predictor", choices=("selected", "gru", "constant_velocity", "constant_acceleration"), default="selected")
@@ -641,6 +642,8 @@ def build_parser():
     process.add_argument("--portable-media", action="store_true",
                          help="Copy verified media beside the HTML report")
     process.add_argument("--checkpoint", help="Optional trained trajectory checkpoint")
+    process.add_argument("--pdf", action="store_true",
+                         help="Also export forensic and requested forecast HTML reports as PDF")
 
     process.set_defaults(func=command_process)
 

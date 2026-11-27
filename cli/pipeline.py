@@ -34,6 +34,10 @@ def process_evidence(args):
         raise ValueError("--portable-media requires --media")
     if checkpoint and not checkpoint.is_file():
         raise ValueError(f"Checkpoint does not exist: {checkpoint}")
+    pdf_requested = getattr(args, "pdf", False)
+    if pdf_requested:
+        from reporting.pdf_export import check_pdf_support
+        check_pdf_support()
     output = Path(args.output).expanduser().resolve() if args.output else None
     if output:
         # Never write reports into source evidence or overwrite a previous run.
@@ -79,6 +83,11 @@ def process_evidence(args):
     generate_report(normalized, html, media_report_path=media_report,
                     portable_media=args.portable_media)
     artifacts["html_report"] = str(html)
+    if pdf_requested:
+        from reporting.pdf_export import export_pdf
+        artifacts["pdf_report"] = str(export_pdf(html))
+        if checkpoint:
+            artifacts["trajectory_pdf"] = str(export_pdf(forecast_html))
     if calculate_sha256(copy) != expected:
         raise ValueError("Flight-log integrity changed during processing")
     # Includes plots, media derivatives and forecast outputs, not just the main JSON.
@@ -91,11 +100,19 @@ def process_evidence(args):
                 "evidence_id": acquired["evidence_id"], "acquired_log": str(copy),
                 "log_sha256": expected, "log_integrity_reverified": True,
                 "artifacts": artifacts, "sha256": hashes,
-                "media_requested": bool(args.media), "forecast_requested": bool(checkpoint)}
+                "media_requested": bool(args.media), "forecast_requested": bool(checkpoint),
+                "pdf_requested": pdf_requested}
+    if pdf_requested:
+        manifest["pdf_options"] = {"max_items_per_table_or_list": 100,
+                                   "omissions_labeled_in_pdf": True}
     manifest_path = output / "run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     for path in (html, manifest_path):
         Path(str(path) + ".sha256").write_text(
             f"{calculate_sha256(path)}  {path.name}\n", encoding="utf-8")
     print(f"\nComplete. Open: {html}\nRun manifest: {manifest_path}")
+    if pdf_requested:
+        print(f"PDF report: {artifacts['pdf_report']}")
+        if checkpoint:
+            print(f"Forecast PDF: {artifacts['trajectory_pdf']}")
     return manifest

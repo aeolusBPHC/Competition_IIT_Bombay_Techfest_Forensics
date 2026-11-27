@@ -73,6 +73,7 @@ def add_arguments(parser):
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output", required=True, help="Forecast JSON, stored separately from source evidence.")
     parser.add_argument("--report", help="Optional HTML forecast report.")
+    parser.add_argument("--pdf", action="store_true", help="Also export --report as PDF (requires --report).")
     parser.add_argument("--case-id")
     parser.add_argument("--at-time", type=float, help="Forecast using only observations up to this source timestamp.")
     parser.add_argument("--predictor", choices=("selected", "gru", "constant_velocity", "constant_acceleration"),
@@ -82,7 +83,18 @@ def add_arguments(parser):
 
 
 def run(args):
-    ensure_distinct_outputs([args.output, args.report], [args.input, args.checkpoint])
+    pdf_requested = getattr(args, "pdf", False)
+    pdf = None
+    if pdf_requested:
+        if not args.report:
+            raise ValueError("--pdf requires --report for the HTML forecast appendix")
+        from reporting.pdf_export import check_pdf_support
+        check_pdf_support()
+        pdf = Path(args.report).with_suffix(".pdf")
+        if pdf.exists() or Path(str(pdf) + ".sha256").exists():
+            raise FileExistsError(f"PDF or checksum already exists; choose a new --report: {pdf}")
+    ensure_distinct_outputs([args.output, args.report, pdf,
+                             str(pdf) + ".sha256" if pdf else None], [args.input, args.checkpoint])
     predictor = TrajectoryPredictor(args.checkpoint, args.device)
     dataset = load_trajectory(args.input)
     if args.at_time is not None:
@@ -124,6 +136,10 @@ def run(args):
     if args.report:
         from reporting.trajectory_report import generate_trajectory_report
         generate_trajectory_report(result, args.report)
+        if pdf_requested:
+            from reporting.pdf_export import export_pdf
+            export_pdf(args.report, pdf)
+            print(f"Forecast PDF: {pdf}")
     print(f"Saved {selected} forecast to {args.output}")
     return result
 

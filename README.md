@@ -16,7 +16,7 @@ images, video, removable-storage artifacts, and model-generated estimates.
 - **Flight reconstruction:** available GPS, navigation, trajectory, commands, acknowledgements, states, parameters, and events.
 - **Operational analysis:** recorded battery, communications, health, and failsafe information, with explicit coverage limits.
 - **Media forensics:** image/video metadata, SRT sidecars, supported embedded telemetry, frame previews, and filesystem timelines.
-- **Readable reporting:** normalized JSON, HTML reports, available plots, optional media galleries, and output hashes.
+- **Readable reporting:** normalized JSON, HTML reports, optional PDF exports, available plots, media galleries, and output hashes.
 - **Trajectory forecasting:** saved-checkpoint inference using a GRU or physics baseline, with estimates kept separate from recorded evidence.
 
 ## Architecture
@@ -34,6 +34,7 @@ flowchart TD
     Analysis["Forensic analysis<br/>Navigation · operations · commands · findings"]
     JSON["Normalized JSON report"]
     HTML["HTML forensic report<br/>Available plots and media gallery"]
+    PDF["Optional printable PDF<br/>Static report and available plots"]
     Media["Optional media examination<br/>Images · video · disk images"]
     Model["Compatible trajectory checkpoint"]
     Forecast["Optional trajectory inference"]
@@ -41,6 +42,7 @@ flowchart TD
 
     Logs --> Acquire --> Parsers --> Evidence --> Analysis --> JSON --> HTML
     Media -. "media report" .-> HTML
+    HTML -. "--pdf" .-> PDF
     Evidence -. "trajectory observations" .-> Forecast
     Model --> Forecast --> Appendix
 
@@ -49,7 +51,7 @@ flowchart TD
     classDef output fill:#f5f3ff,stroke:#7c3aed,color:#2e1065
     class Logs,Media,Model input
     class Acquire,Parsers,Evidence,Analysis,Forecast processing
-    class JSON,HTML,Appendix output
+    class JSON,HTML,PDF,Appendix output
 ```
 
 ## Quick start
@@ -87,7 +89,7 @@ flowchart TD
     Verify -- "No" --> Stop["Stop with an error"]
     Verify -- "Yes" --> Analyze["Parse, normalize and analyze the copy"]
     Analyze --> Extras["Run requested media and forecast stages"]
-    Extras --> Report["Generate HTML and available plots"]
+    Extras --> Report["Generate HTML and available plots<br/>Export PDF when requested"]
     Report --> Recheck{"Acquired log hash unchanged?"}
     Recheck -- "No" --> Stop
     Recheck -- "Yes" --> Manifest["Write completion manifest<br/>Artifact paths and SHA-256 hashes"]
@@ -115,6 +117,51 @@ python3 -m cli.main process \
 The case identifier is optional and is generated when omitted. The output folder
 must be new, protecting previous results from replacement. Without `--output`,
 results are saved under `repository/cases/<case>/<evidence>/results/`.
+
+### Export PDF reports
+
+Install the optional renderer in the active virtual environment. On Ubuntu,
+the system libraries can be installed from any directory; run the pip command
+from the repository root:
+
+```bash
+sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core
+python3 -m pip install -r requirements-pdf.txt
+```
+
+Generate JSON, HTML, and PDF together:
+
+```bash
+python3 -m cli.main process --input /path/to/flight.ulg --pdf
+```
+
+This adds `forensic_report.pdf` and its `.sha256` sidecar to the results folder
+and completion manifest. With `--checkpoint`, it also exports
+`trajectory_forecast.pdf`. PDF support is optional; HTML and JSON commands work
+without WeasyPrint. See the [renderer installation guide](https://doc.courtbouillon.org/weasyprint/v68.0/first_steps.html)
+for other operating systems.
+
+Convert an existing forensic or ML HTML report without reprocessing its log:
+
+```bash
+python3 -m reporting.pdf_export \
+  --input reports/examples/pixhawk6c_mini/attitude_failsafe/forensic_report.html \
+  --output reports/pdf/attitude_failsafe.pdf
+```
+
+The exporter refuses to replace an existing PDF or checksum. It loads local and
+embedded resources, expands metadata disclosures, and adds page numbers. Keep
+local images beside the source HTML, or use `--portable-media` during processing.
+Missing image or stylesheet resources fail the export before a PDF is written.
+Long tables and lists show the first 100 items each, with explicit omission
+labels and a notice. Full data remain in the HTML and JSON artifacts. For a
+complete standalone export, add `--max-items 0`; large reports require more
+rendering time and memory.
+
+PDFs contain static content; video playback and frame-seeking controls require
+the HTML report. Standalone conversion writes a checksum beside the PDF but
+does not change an existing run manifest. PDF checksums verify the generated
+bytes; separate exports need not be byte-identical.
 
 ### Include images, video, or a disk image
 
@@ -194,6 +241,10 @@ uses the checkpoint's validation-selected GRU, constant-velocity, or
 constant-acceleration predictor; it does not train a new model on each input.
 Insufficient continuous history or an incompatible checkpoint fails the
 requested forecast stage.
+
+Add `--pdf` to `process` to export both HTML reports to PDF. For
+`trajectory-predict`, use `--report reports/ml/ml_report.html --pdf` to export
+the forecast appendix as `reports/ml/ml_report.pdf` with a checksum.
 
 To explicitly run the neural-network predictor, generate a GRU appendix:
 
@@ -291,15 +342,16 @@ flight CSVs are not registered flight-log formats.
 | `chain_of_custody.json` | Acquisition and integrity-verification events |
 | `normalized_report.json` | Normalized evidence, coverage, analysis, provenance, and findings |
 | `forensic_report.html` | Main readable report with available visualizations and linked media |
+| `forensic_report.pdf` | Optional printable export requested with `--pdf` |
 | `forensic_report_plots/` | Generated plots |
 | `run_manifest.json` | Completion state, identifiers, artifact paths, and output hashes |
 | `media_report.json` | Optional media metadata, telemetry, anomalies, and filesystem observations |
 | `forensic_report_assets/` | Optional portable media copies |
-| `trajectory_forecast.json` / `.html` | Optional forecast and appendix |
+| `trajectory_forecast.json` / `.html` / `.pdf` | Optional forecast and appendix; PDF requires `--pdf` |
 
 Acquisition metadata and custody records are stored beside the acquired evidence;
 analysis and report artifacts go in the results folder. Normalized/media JSON,
-the main HTML, and the completion manifest have SHA-256 sidecars.
+the main HTML, requested PDFs, and the completion manifest have SHA-256 sidecars.
 
 A failed run exits nonzero and retains partial outputs for inspection. The
 completion manifest is written only after all requested stages finish. The HTML
@@ -328,6 +380,8 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 MPLBACKEND=Agg python3 -m pytest -q
 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` isolates pytest from unrelated installed
 plugins. `MPLBACKEND=Agg` renders plots without a display. Git LFS supplies the
 binary log fixtures used by the regression tests.
+
+Install `requirements-pdf.txt` to include the optional PDF rendering tests.
 
 Optional disk-image tests use `dosfstools` and
 `mtools` alongside Sleuth Kit. Fetch the supported real media samples with:
