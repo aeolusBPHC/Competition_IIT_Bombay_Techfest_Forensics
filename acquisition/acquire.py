@@ -37,7 +37,7 @@ def utc_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 
-def acquire_evidence(input_file, case_id, operator="drone_forensics"):
+def acquire_evidence(input_file, case_id, operator="drone_forensics", trust_dir=None):
     """
     Acquire a piece of digital evidence.
 
@@ -74,6 +74,9 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
         Path("repository/cases") / case_id / evidence_id
     )
 
+    from acquisition.custody import checkpoint_for, seal_acquisition
+    checkpoint = checkpoint_for(case_directory, case_id, evidence_id, trust_dir)
+
     evidence_directory = case_directory / "evidence"
     evidence_directory.mkdir(
         parents=True,
@@ -104,7 +107,9 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
         "forensic_copy_hash": copied_hash,
         "integrity_verified": integrity_verified,
         "acquisition_timestamp_utc": acquisition_time,
-        "operator": operator
+        "operator": operator,
+        "custody_schema_version": 1,
+        "custody_checkpoint": str(checkpoint),
     }
 
     metadata_file = case_directory / "metadata.json"
@@ -158,12 +163,8 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
         case_directory / "chain_of_custody.json"
     )
 
-    with open(custody_file, "w") as f:
-        json.dump(
-            chain_of_custody,
-            f,
-            indent=4
-        )
+    custody_state = seal_acquisition(case_directory, chain_of_custody, checkpoint,
+                                     expected_metadata=metadata)
 
     print("=" * 60)
     print("DRONE FORENSICS TOOLKIT")
@@ -190,6 +191,8 @@ def acquire_evidence(input_file, case_id, operator="drone_forensics"):
 
     print("\nMetadata      :", metadata_file)
     print("Chain custody:", custody_file)
+    print("Trusted checkpoint:", checkpoint)
+    print("Checkpoint SHA-256:", custody_state["checkpoint_sha256"])
 
     print("=" * 60)
 
@@ -218,13 +221,15 @@ def main():
         default="drone_forensics",
         help="Operator identifier"
     )
+    parser.add_argument("--trust-dir", help="Protected checkpoint directory outside repository/cases")
 
     args = parser.parse_args()
 
     acquire_evidence(
         input_file=args.input,
         case_id=args.case,
-        operator=args.operator
+        operator=args.operator,
+        trust_dir=args.trust_dir,
     )
 
 

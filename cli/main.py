@@ -48,7 +48,9 @@ def command_acquire(args):
 
     acquire_evidence(
         input_file=args.input,
-        case_id=args.case
+        case_id=args.case,
+        operator=args.operator,
+        trust_dir=args.trust_dir,
     )
 
 
@@ -477,6 +479,22 @@ def command_process(args):
     return process_evidence(args)
 
 
+def command_verify_custody(args):
+    from acquisition.custody import verify_custody
+    result = verify_custody(args.evidence_dir, args.checkpoint,
+                            expected_checkpoint_sha256=args.checkpoint_sha256)
+    print(json.dumps(result, indent=2))
+    return result
+
+
+def command_append_custody(args):
+    from acquisition.custody import append_custody_event
+    result = append_custody_event(args.evidence_dir, args.checkpoint, event=args.event,
+                                  operator=args.operator, description=args.description)
+    print(json.dumps(result, indent=2))
+    return result
+
+
 # ============================================================
 # ARGUMENT PARSER
 # ============================================================
@@ -496,6 +514,20 @@ def build_parser():
         dest="command",
         required=True
     )
+
+    verify = subparsers.add_parser("verify-custody", help="Verify evidence and custody against a trusted external checkpoint")
+    verify.add_argument("--evidence-dir", required=True, help="Acquisition directory containing metadata.json")
+    verify.add_argument("--checkpoint", required=True, help="Original protected checkpoint outside the case")
+    verify.add_argument("--checkpoint-sha256", help="Optional independently recorded checkpoint SHA-256")
+    verify.set_defaults(func=command_verify_custody)
+
+    custody = subparsers.add_parser("append-custody", help="Verify and append an authorized custody action")
+    custody.add_argument("--evidence-dir", required=True)
+    custody.add_argument("--checkpoint", required=True)
+    custody.add_argument("--event", required=True, help="Uppercase action identifier, e.g. EVIDENCE_REVIEWED")
+    custody.add_argument("--operator", required=True)
+    custody.add_argument("--description", required=True)
+    custody.set_defaults(func=command_append_custody)
 
     # Keep PyTorch optional for the rest of the forensic CLI.
     forecast = subparsers.add_parser("trajectory-predict", help="Forecast with a saved trajectory checkpoint")
@@ -531,6 +563,8 @@ def build_parser():
         help="Case identifier"
     )
 
+    acquire.add_argument("--operator", default="drone_forensics")
+    acquire.add_argument("--trust-dir", help="Protected checkpoint directory outside repository/cases")
     acquire.set_defaults(func=command_acquire)
 
     # --------------------------------------------------------
@@ -644,6 +678,8 @@ def build_parser():
     process.add_argument("--checkpoint", help="Optional trained trajectory checkpoint")
     process.add_argument("--pdf", action="store_true",
                          help="Also export forensic and requested forecast HTML reports as PDF")
+    process.add_argument("--operator", default="drone_forensics", help="Operator label recorded in custody events")
+    process.add_argument("--trust-dir", help="Protected checkpoint directory outside repository/cases")
 
     process.set_defaults(func=command_process)
 

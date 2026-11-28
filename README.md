@@ -11,7 +11,7 @@ images, video, removable-storage artifacts, and model-generated estimates.
 
 ## Capabilities
 
-- **Evidence preservation:** SHA-256 hashing, verified acquisition copies, metadata, and chain-of-custody records.
+- **Evidence preservation:** SHA-256 hashing, verified copies, metadata, and custody hash chains checked against separately protected checkpoints.
 - **Multi-platform analysis:** automatic format detection and a common evidence representation across supported adapters.
 - **Flight reconstruction:** available GPS, navigation, trajectory, commands, acknowledgements, states, parameters, and events.
 - **Operational analysis:** recorded battery, communications, health, and failsafe information, with explicit coverage limits.
@@ -117,6 +117,70 @@ python3 -m cli.main process \
 The case identifier is optional and is generated when omitted. The output folder
 must be new, protecting previous results from replacement. Without `--output`,
 results are saved under `repository/cases/<case>/<evidence>/results/`.
+
+### Verify evidence and custody
+
+New acquisitions create a SHA-256 hash chain in `chain_of_custody.json` and a
+trusted checkpoint outside `repository/cases`. The default checkpoint store is
+`~/.local/share/drone-forensics/custody/`. Set `--trust-dir` on `acquire` or
+`process`, or set `DRONE_FORENSICS_TRUST_DIR`, to use protected storage elsewhere.
+The store must be separate from case/report data and must not be group/world
+writable. Acquisition prints the checkpoint path and its SHA-256.
+
+Verify using the original, independently trusted checkpoint:
+
+```bash
+python3 -m cli.main verify-custody \
+  --evidence-dir /path/to/CASE-ID/EVD-ID \
+  --checkpoint /path/to/protected-checkpoint.json
+```
+
+This read-only command verifies the acquired evidence bytes, acquisition
+metadata, event hashes/order, event count and final custody-chain hash. A mismatch,
+missing record or missing checkpoint exits nonzero. `--checkpoint-sha256` can
+also pin an independently recorded reference digest. The JSON custody checkpoint
+is separate from the `.pt` forecasting checkpoint used by `process`.
+
+Record a subsequent authorized action through the verified writer:
+
+```bash
+python3 -m cli.main append-custody \
+  --evidence-dir /path/to/CASE-ID/EVD-ID \
+  --checkpoint /path/to/protected-checkpoint.json \
+  --event EVIDENCE_REVIEWED --operator examiner-01 \
+  --description "Reviewed the preserved evidence copy"
+```
+
+The writer first verifies the case, preserves the existing chain prefix, appends
+the action and advances the trusted checkpoint. The process workflow records
+analysis and requested media/forecast/report stages and verifies acquired log
+and individual media copies before writing its completion manifest. Directory
+media input remains examination in place, not acquisition of an entire directory.
+
+Run the repeatable tamper demonstration in a new output directory:
+
+```bash
+python3 -m tools.demonstrate_custody_tampering --output reports/custody-demo
+```
+
+It uses a declared generated payload by default; add `--input /path/to/flight.ulg`
+to test disposable copies of a supplied file. The demo checkpoint store is a
+separate sibling directory; `--trust-dir` can select another protected location.
+It verifies two positive controls
+and expects rejection of six attacks: one-byte evidence changes, custody edits,
+deletion, reordering, a fully rebuilt local hash chain, and forged evidence plus
+metadata hashes. Results are saved as HTML/JSON with SHA-256 sidecars. Existing
+output directories are not replaced.
+
+**Trust boundary:** detection requires the original protected reference. A party
+able to replace both case and trusted checkpoint can forge a consistent history.
+Keep a separate controlled/offline reference or independently recorded checkpoint
+digest. POSIX permissions are applied to newly created checkpoint files; they do
+not authenticate operator labels, provide digital signatures or enforce source
+write blocking. Verification describes the state checked at that time. Concurrent
+or interrupted updates can fail verification; failed cases are not automatically
+re-sealed. Historical acquisitions have no retrospective trusted checkpoint and
+are not silently upgraded.
 
 ### Export PDF reports
 
@@ -339,12 +403,14 @@ flight CSVs are not registered flight-log formats.
 | Artifact | Purpose |
 | --- | --- |
 | `metadata.json` | Acquisition source, identifiers, timestamps, and evidence hashes |
-| `chain_of_custody.json` | Acquisition and integrity-verification events |
+| `chain_of_custody.json` | Hash-chained acquisition and subsequent recorded actions |
+| Protected checkpoint JSON (outside the case) | Trusted evidence/metadata hashes and custody head/count |
 | `normalized_report.json` | Normalized evidence, coverage, analysis, provenance, and findings |
 | `forensic_report.html` | Main readable report with available visualizations and linked media |
 | `forensic_report.pdf` | Optional printable export requested with `--pdf` |
 | `forensic_report_plots/` | Generated plots |
 | `run_manifest.json` | Completion state, identifiers, artifact paths, and output hashes |
+| `custody_verification.json` | Custody/evidence verification snapshot, including individually acquired media |
 | `media_report.json` | Optional media metadata, telemetry, anomalies, and filesystem observations |
 | `forensic_report_assets/` | Optional portable media copies |
 | `trajectory_forecast.json` / `.html` / `.pdf` | Optional forecast and appendix; PDF requires `--pdf` |
